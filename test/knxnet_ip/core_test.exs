@@ -8,7 +8,8 @@ defmodule KNXnetIP.CoreTest do
     ConnectResponse,
     ConnectionResponseDataBlock,
     ConnectionstateRequest,
-    ConnectionstateResponse
+    ConnectionstateResponse,
+    DisconnectRequest
   }
 
   describe "CONNECT_REQUEST" do
@@ -130,6 +131,31 @@ defmodule KNXnetIP.CoreTest do
         0x08::16,
         # communication channel id and status
         1, 0x00,
+      >>
+      assert_decode_encode(decoded, encoded)
+    end
+  end
+
+  describe "DISCONNECT_REQUEST" do
+    test "decode/encode" do
+      decoded = %DisconnectRequest{
+        communication_channel_id: 1,
+        control_endpoint: %HostProtocolAddressInformation{
+          ip_address: "10.10.42.2",
+          port: 63134,
+        },
+      }
+      encoded = <<
+        # KNX header
+        0x06, 0x10,
+        0x0209::16,
+        0x10::16,
+        # communication channel id and reserved 0x00
+        1, 0x00,
+        # HPAI control endpoint
+        0x08, 0x01,
+        10, 10, 42, 2,
+        63134::16,
       >>
       assert_decode_encode(decoded, encoded)
     end
