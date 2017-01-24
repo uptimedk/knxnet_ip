@@ -9,7 +9,8 @@ defmodule KNXnetIP.CoreTest do
     ConnectionResponseDataBlock,
     ConnectionstateRequest,
     ConnectionstateResponse,
-    DisconnectRequest
+    DisconnectRequest,
+    DisconnectResponse
   }
 
   describe "CONNECT_REQUEST" do
@@ -156,6 +157,25 @@ defmodule KNXnetIP.CoreTest do
         0x08, 0x01,
         10, 10, 42, 2,
         63134::16,
+      >>
+      assert_decode_encode(decoded, encoded)
+    end
+  end
+
+  describe "DISCONNECT_RESPONSE" do
+    test "decode/encode e_no_error" do
+      decoded = %DisconnectResponse{
+        communication_channel_id: 1,
+        status: :e_no_error
+      }
+
+      encoded = <<
+        # KNX header
+        0x06, 0x10,
+        0x020A::16,
+        0x08::16,
+        # communication channel id and status
+        1, 0x00,
       >>
       assert_decode_encode(decoded, encoded)
     end

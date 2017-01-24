@@ -14,6 +14,7 @@ defmodule KNXnetIP.Core do
   @connectionstate_request 0x0207
   @connectionstate_response 0x0208
   @disconnect_request 0x0209
+  @disconnect_response 0x020A
   @e_no_error 0x00
 
   def constant(:ipv4_udp), do: @ipv4_udp
@@ -69,6 +70,11 @@ defmodule KNXnetIP.Core do
       control_endpoint: %Core.HostProtocolAddressInformation{}
   end
 
+  defmodule DisconnectResponse do
+    defstruct communication_channel_id: nil,
+      status: nil
+  end
+
   def encode(%ConnectRequest{} = req) do
     control_endpoint = encode_hpai(req.control_endpoint)
     data_endpoint = encode_hpai(req.data_endpoint)
@@ -104,6 +110,11 @@ defmodule KNXnetIP.Core do
     body = <<req.communication_channel_id, 0x00>> <> control_endpoint
     body_length = byte_size(body)
     encode_header(@disconnect_request, body_length) <> body
+  end
+
+  def encode(%DisconnectResponse{} = res) do
+    body = <<res.communication_channel_id, constant(res.status)>>
+    encode_header(@disconnect_response, 2) <> body
   end
 
   def decode(<<@header_size_10, @knxnetip_version_10, data::binary>>) do
@@ -171,6 +182,14 @@ defmodule KNXnetIP.Core do
       communication_channel_id: communication_channel_id,
       control_endpoint: control_endpoint
     }
+  end
+
+  def decode(<<@disconnect_response::16, _length::16, data::binary>>) do
+    <<communication_channel_id::8, status::8>> = data
+      %DisconnectResponse{
+      communication_channel_id: communication_channel_id,
+      status: constant(status)
+      }
   end
 
   defp encode_hpai(%HostProtocolAddressInformation{} = hpai) do
