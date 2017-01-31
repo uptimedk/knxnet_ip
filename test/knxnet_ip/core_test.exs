@@ -1,6 +1,7 @@
 defmodule KNXnetIP.CoreTest do
   use ExUnit.Case
 
+  alias KNXnetIP.Core
   alias KNXnetIP.Core.{
     ConnectRequest,
     HostProtocolAddressInformation,
@@ -33,10 +34,6 @@ defmodule KNXnetIP.CoreTest do
       }
 
       encoded = <<
-        # KNX header
-        0x06, 0x10,
-        0x0205::16,
-        0x1a::16,
         # HPAI control endpoint
         0x08, 0x01,
         10, 10, 42, 2,
@@ -50,7 +47,8 @@ defmodule KNXnetIP.CoreTest do
         0x02, 0x00
       >>
 
-      assert_decode_encode(decoded, encoded)
+      assert encoded == Core.encode_connect_request(decoded)
+      assert decoded == Core.decode_connect_request(encoded)
     end
   end
 
@@ -72,10 +70,6 @@ defmodule KNXnetIP.CoreTest do
       }
 
       encoded = <<
-        # KNX header
-        0x06, 0x10,
-        0x0206::16,
-        0x14::16,
         # communication channel id and connect status
         1, 0x00,
         # HPAI data endpoint
@@ -87,7 +81,8 @@ defmodule KNXnetIP.CoreTest do
         1::4, 1::4, 1::8,
       >>
 
-      assert_decode_encode(decoded, encoded)
+      assert encoded == Core.encode_connect_response(decoded)
+      assert decoded == Core.decode_connect_response(encoded)
     end
   end
 
@@ -102,10 +97,6 @@ defmodule KNXnetIP.CoreTest do
       }
 
       encoded = <<
-        # KNX header
-        0x06, 0x10,
-        0x0207::16,
-        0x10::16,
         # communication channel id and reserved 0x00
         1, 0x00,
         # HPAI control endpoint
@@ -114,7 +105,8 @@ defmodule KNXnetIP.CoreTest do
         63134::16,
       >>
 
-      assert_decode_encode(decoded, encoded)
+      assert encoded == Core.encode_connectionstate_request(decoded)
+      assert decoded == Core.decode_connectionstate_request(encoded)
     end
   end
 
@@ -126,14 +118,12 @@ defmodule KNXnetIP.CoreTest do
       }
 
       encoded = <<
-        # KNX header
-        0x06, 0x10,
-        0x0208::16,
-        0x08::16,
         # communication channel id and status
         1, 0x00,
       >>
-      assert_decode_encode(decoded, encoded)
+
+      assert encoded == Core.encode_connectionstate_response(decoded)
+      assert decoded == Core.decode_connectionstate_response(encoded)
     end
   end
 
@@ -147,10 +137,6 @@ defmodule KNXnetIP.CoreTest do
         },
       }
       encoded = <<
-        # KNX header
-        0x06, 0x10,
-        0x0209::16,
-        0x10::16,
         # communication channel id and reserved 0x00
         1, 0x00,
         # HPAI control endpoint
@@ -158,7 +144,9 @@ defmodule KNXnetIP.CoreTest do
         10, 10, 42, 2,
         63134::16,
       >>
-      assert_decode_encode(decoded, encoded)
+
+      assert encoded == Core.encode_disconnect_request(decoded)
+      assert decoded == Core.decode_disconnect_request(encoded)
     end
   end
 
@@ -170,21 +158,12 @@ defmodule KNXnetIP.CoreTest do
       }
 
       encoded = <<
-        # KNX header
-        0x06, 0x10,
-        0x020A::16,
-        0x08::16,
         # communication channel id and status
         1, 0x00,
       >>
-      assert_decode_encode(decoded, encoded)
-    end
-  end
 
-  defp assert_decode_encode(decoded, encoded) do
-    actual_decoded = KNXnetIP.Core.decode(encoded)
-    assert decoded == actual_decoded
-    actual_encoded = KNXnetIP.Core.encode(decoded)
-    assert encoded == actual_encoded
+      assert encoded == Core.encode_disconnect_response(decoded)
+      assert decoded == Core.decode_disconnect_response(encoded)
+    end
   end
 end

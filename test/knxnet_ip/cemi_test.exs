@@ -22,14 +22,8 @@ defmodule KNXnetIP.CEMITest do
         0x1917::16, # data
       >>
 
-      assert_decode_encode(decoded, encoded)
+      assert decoded == CEMI.decode(encoded)
+      assert encoded == CEMI.encode(decoded)
     end
-  end
-
-  defp assert_decode_encode(decoded, encoded) do
-    actual_decoded = CEMI.decode(encoded)
-    assert decoded == actual_decoded
-    actual_encoded = CEMI.encode(decoded)
-    assert encoded == actual_encoded
   end
 end

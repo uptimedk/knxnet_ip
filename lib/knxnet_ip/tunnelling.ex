@@ -1,4 +1,4 @@
-defmodule KNXnetIP.Tunnel do
+defmodule KNXnetIP.Tunnelling do
   @moduledoc """
   Implementation of the KNXnet/IP Tunnelling specification (document 3/8/4)
   """
@@ -7,6 +7,38 @@ defmodule KNXnetIP.Tunnel do
 
   def constant(:tunnel_linklayer), do: @tunnel_linklayer
   def constant(@tunnel_linklayer), do: :tunnel_linklayer
+
+  defmodule TunnellingRequest do
+    defstruct communication_channel_id: nil,
+      sequence_counter: nil,
+      cemi_frame: %{}
+  end
+
+  def encode_tunnelling_request(req) do
+    length = 0x04
+    reserved = 0x00
+    cemi_frame = KNXnetIP.CEMI.encode(req.cemi_frame)
+    <<
+      length, req.communication_channel_id,
+      req.sequence_counter, reserved
+    >> <> cemi_frame
+  end
+
+  def decode_tunnelling_request(data) do
+    <<
+      _length, communication_channel_id,
+      sequence_counter, 0x00,
+      rest::binary
+    >> = data
+
+    cemi_frame = KNXnetIP.CEMI.decode(rest)
+
+    %TunnellingRequest{
+      communication_channel_id: communication_channel_id,
+      sequence_counter: sequence_counter,
+      cemi_frame: cemi_frame
+    }
+  end
 
   def encode_cri(connection_data) do
     knx_layer = constant(connection_data.knx_layer)
@@ -31,5 +63,4 @@ defmodule KNXnetIP.Tunnel do
     connection_data = %{knx_individual_address: "#{area}.#{line}.#{bus_device}"}
     {connection_data, rest}
   end
-
 end

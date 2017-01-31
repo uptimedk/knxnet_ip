@@ -48,13 +48,12 @@ defmodule KNXnetIP.CEMI do
 
     destination = decode_group_address(destination)
 
-    cemi = %LDataInd{
+    %LDataInd{
       source: decode_individual_address(source),
       destination: destination,
       application_pdu: constant(application_control_field),
       data: value
     }
-    {cemi, <<>>}
   end
 
   defp encode_npdu(application_control_field, data)
