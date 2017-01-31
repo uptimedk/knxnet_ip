@@ -14,6 +14,12 @@ defmodule KNXnetIP.Tunnelling do
       cemi_frame: %{}
   end
 
+  defmodule TunnellingAck do
+    defstruct communication_channel_id: nil,
+      sequence_counter: nil,
+      status: nil
+  end
+
   def encode_tunnelling_request(req) do
     length = 0x04
     reserved = 0x00
@@ -37,6 +43,28 @@ defmodule KNXnetIP.Tunnelling do
       communication_channel_id: communication_channel_id,
       sequence_counter: sequence_counter,
       cemi_frame: cemi_frame
+    }
+  end
+
+  def encode_tunnelling_ack(ack) do
+    length = 0x04
+    status = KNXnetIP.Core.constant(ack.status)
+    <<
+      length, ack.communication_channel_id,
+      ack.sequence_counter, status
+    >>
+  end
+
+  def decode_tunnelling_ack(data) do
+    <<
+      _length::8, communication_channel_id::8,
+      sequence_counter::8, status::8
+    >> = data
+
+    %TunnellingAck{
+      communication_channel_id: communication_channel_id,
+      sequence_counter: sequence_counter,
+      status: KNXnetIP.Core.constant(status)
     }
   end
 

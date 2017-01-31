@@ -12,6 +12,7 @@ defmodule KNXnetIP do
   @disconnect_request 0x0209
   @disconnect_response 0x020A
   @tunnelling_request 0x0420
+  @tunnelling_ack 0x0421
 
   def encode(%Core.ConnectRequest{} = req) do
     req
@@ -55,6 +56,12 @@ defmodule KNXnetIP do
     |> encode_frame(@tunnelling_request)
   end
 
+  def encode(%Tunnelling.TunnellingAck{} = req) do
+    req
+    |> Tunnelling.encode_tunnelling_ack()
+    |> encode_frame(@tunnelling_ack)
+  end
+
   def decode(<<@header_size_10, @knxnetip_version_10, data::binary>>) do
     decode(data)
   end
@@ -85,6 +92,10 @@ defmodule KNXnetIP do
 
   def decode(<<@tunnelling_request::16, _length::16, data::binary>>) do
     Tunnelling.decode_tunnelling_request(data)
+  end
+
+  def decode(<<@tunnelling_ack::16, _length::16, data::binary>>) do
+    Tunnelling.decode_tunnelling_ack(data)
   end
 
   defp encode_frame(body, service_type) do

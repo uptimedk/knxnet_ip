@@ -2,7 +2,10 @@ defmodule KNXnetIP.TunnellingTest do
   use ExUnit.Case
 
   alias KNXnetIP.Tunnelling
-  alias KNXnetIP.Tunnelling.TunnellingRequest
+  alias KNXnetIP.Tunnelling.{
+    TunnellingRequest,
+    TunnellingAck,
+  }
   alias KNXnetIP.CEMI
 
   describe "TUNNELLING_REQUEST" do
@@ -28,6 +31,26 @@ defmodule KNXnetIP.TunnellingTest do
 
       assert encoded == Tunnelling.encode_tunnelling_request(decoded)
       assert decoded == Tunnelling.decode_tunnelling_request(encoded)
+    end
+  end
+
+  describe "TUNNELLING_ACK" do
+    test "decode/encode" do
+      decoded = %TunnellingAck{
+        communication_channel_id: 1,
+        sequence_counter: 0,
+        status: :e_no_error
+      }
+
+      encoded = <<
+        # length and communication channel id
+        0x04, 1,
+        # sequence counter and status
+        0, 0x00,
+      >>
+
+      assert encoded == Tunnelling.encode_tunnelling_ack(decoded)
+      assert decoded == Tunnelling.decode_tunnelling_ack(encoded)
     end
   end
 end
