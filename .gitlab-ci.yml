@@ -1,0 +1,12 @@
+---
+
+image: elixir:1.4
+
+test:
+  stage: test
+  script:
+    - mix deps.get
+    - mix test
+  cache:
+    paths:
+      - deps/
