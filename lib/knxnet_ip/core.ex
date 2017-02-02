@@ -3,19 +3,11 @@ defmodule KNXnetIP.Core do
   Implementation of the KNXnet/IP Core specification (document 3/8/2)
   """
 
-  alias KNXnetIP.Tunnel
+  alias KNXnetIP.Tunnelling
 
-  @header_size_10 0x06
-  @knxnetip_version_10 0x10
-  @ipv4_udp 0x01
   @tunnel_connection 0x04
-  @connect_request 0x0205
-  @connect_response 0x0206
-  @connectionstate_request 0x0207
-  @connectionstate_response 0x0208
-  @disconnect_request 0x0209
-  @disconnect_response 0x020A
   @e_no_error 0x00
+  @ipv4_udp 0x01
 
   def constant(:ipv4_udp), do: @ipv4_udp
   def constant(:tunnel_connection), do: @tunnel_connection
@@ -75,53 +67,14 @@ defmodule KNXnetIP.Core do
       status: nil
   end
 
-  def encode(%ConnectRequest{} = req) do
+  def encode_connect_request(req) do
     control_endpoint = encode_hpai(req.control_endpoint)
     data_endpoint = encode_hpai(req.data_endpoint)
     cri = encode_cri(req.connection_request_information)
-    body = control_endpoint <> data_endpoint <> cri
-    body_length = byte_size(body)
-    encode_header(@connect_request, body_length) <> body
+    control_endpoint <> data_endpoint <> cri
   end
 
-  def encode(%ConnectResponse{} = req) do
-    status = constant(req.status)
-    data_endpoint = encode_hpai(req.data_endpoint)
-    crd = encode_crd(req.connection_response_data_block)
-    body = <<req.communication_channel_id, status>> <> data_endpoint <> crd
-    body_length = byte_size(body)
-    encode_header(@connect_response, body_length) <> body
-  end
-
-  def encode(%ConnectionstateRequest{} = cr) do
-    control_endpoint = encode_hpai(cr.control_endpoint)
-    body = <<cr.communication_channel_id::8, 0x00::8>> <> control_endpoint
-    body_length = byte_size(body)
-    encode_header(@connectionstate_request, body_length) <> body
-  end
-
-  def encode(%ConnectionstateResponse{} = cr) do
-    body = <<cr.communication_channel_id, constant(cr.status)>>
-    encode_header(@connectionstate_response, 2) <> body
-  end
-
-  def encode(%DisconnectRequest{} = req) do
-    control_endpoint = encode_hpai(req.control_endpoint)
-    body = <<req.communication_channel_id, 0x00>> <> control_endpoint
-    body_length = byte_size(body)
-    encode_header(@disconnect_request, body_length) <> body
-  end
-
-  def encode(%DisconnectResponse{} = res) do
-    body = <<res.communication_channel_id, constant(res.status)>>
-    encode_header(@disconnect_response, 2) <> body
-  end
-
-  def decode(<<@header_size_10, @knxnetip_version_10, data::binary>>) do
-    decode(data)
-  end
-
-  def decode(<<@connect_request::16, _length::16, data::binary>>) do
+  def decode_connect_request(data) do
     with {control_endpoint, rest} <- decode_hpai(data),
          {data_endpoint, rest} <- decode_hpai(rest),
          {cri, <<>>} <- decode_cri(rest) do
@@ -134,7 +87,14 @@ defmodule KNXnetIP.Core do
     end
   end
 
-  def decode(<<@connect_response::16, _length::16, data::binary>>) do
+  def encode_connect_response(resp) do
+    status = constant(resp.status)
+    data_endpoint = encode_hpai(resp.data_endpoint)
+    crd = encode_crd(resp.connection_response_data_block)
+    <<resp.communication_channel_id, status>> <> data_endpoint <> crd
+  end
+
+  def decode_connect_response(data) do
     <<communication_channel_id::8, status::8, rest::binary>> = data
     if status == @e_no_error do
       with {data_endpoint, rest} <- decode_hpai(rest),
@@ -156,7 +116,12 @@ defmodule KNXnetIP.Core do
     end
   end
 
-  def decode(<<@connectionstate_request::16, _length::16, data::binary>>) do
+  def encode_connectionstate_request(cr) do
+    control_endpoint = encode_hpai(cr.control_endpoint)
+    <<cr.communication_channel_id::8, 0x00::8>> <> control_endpoint
+  end
+
+  def decode_connectionstate_request(data) do
     <<communication_channel_id::8, 0x00::8, rest::binary>> = data
     {control_endpoint, <<>>} = decode_hpai(rest)
     connectionstate_request = %ConnectionstateRequest{
@@ -166,7 +131,11 @@ defmodule KNXnetIP.Core do
     connectionstate_request
   end
 
-  def decode(<<@connectionstate_response::16, _length::16, data::binary>>) do
+  def encode_connectionstate_response(cr) do
+    <<cr.communication_channel_id, constant(cr.status)>>
+  end
+
+  def decode_connectionstate_response(data) do
     <<communication_channel_id::8, status::8>> = data
     connectionstate_response = %ConnectionstateResponse{
       communication_channel_id: communication_channel_id,
@@ -175,7 +144,12 @@ defmodule KNXnetIP.Core do
     connectionstate_response
   end
 
-  def decode(<<@disconnect_request::16, _length::16, data::binary>>) do
+  def encode_disconnect_request(req) do
+    control_endpoint = encode_hpai(req.control_endpoint)
+    <<req.communication_channel_id, 0x00>> <> control_endpoint
+  end
+
+  def decode_disconnect_request(data) do
     <<communication_channel_id::8, 0x00, rest::binary>> = data
     {control_endpoint, <<>>} = decode_hpai(rest)
     %DisconnectRequest{
@@ -184,7 +158,11 @@ defmodule KNXnetIP.Core do
     }
   end
 
-  def decode(<<@disconnect_response::16, _length::16, data::binary>>) do
+  def encode_disconnect_response(resp) do
+    <<resp.communication_channel_id, constant(resp.status)>>
+  end
+
+  def decode_disconnect_response(data) do
     <<communication_channel_id::8, status::8>> = data
       %DisconnectResponse{
       communication_channel_id: communication_channel_id,
@@ -218,7 +196,7 @@ defmodule KNXnetIP.Core do
 
   defp encode_cri(%ConnectionRequestInformation{} = cri) do
     connection_data = case cri.connection_type do
-      :tunnel_connection -> Tunnel.encode_cri(cri.connection_data)
+      :tunnel_connection -> Tunnelling.encode_cri(cri.connection_data)
     end
     length = 2 + byte_size(connection_data)
     connection_type = constant(cri.connection_type)
@@ -226,7 +204,7 @@ defmodule KNXnetIP.Core do
   end
 
   defp decode_cri(<<_length, @tunnel_connection, data::binary>>) do
-    {connection_data, <<>>} = Tunnel.decode_cri(data)
+    {connection_data, <<>>} = Tunnelling.decode_cri(data)
     cri = %ConnectionRequestInformation{
       connection_type: :tunnel_connection,
       connection_data: connection_data,
@@ -236,7 +214,7 @@ defmodule KNXnetIP.Core do
 
   defp encode_crd(%ConnectionResponseDataBlock{} = crd) do
     connection_data = case crd.connection_type do
-      :tunnel_connection -> Tunnel.encode_crd(crd.connection_data)
+      :tunnel_connection -> Tunnelling.encode_crd(crd.connection_data)
     end
     length = 2 + byte_size(connection_data)
     connection_type = constant(crd.connection_type)
@@ -244,19 +222,11 @@ defmodule KNXnetIP.Core do
   end
 
   defp decode_crd(<<_length, @tunnel_connection, data::binary>>) do
-    {connection_data, <<>>} = Tunnel.decode_crd(data)
+    {connection_data, <<>>} = Tunnelling.decode_crd(data)
     crd = %ConnectionResponseDataBlock{
       connection_type: :tunnel_connection,
       connection_data: connection_data,
     }
     {crd, <<>>}
-  end
-
-  defp encode_header(service_type, body_length) do
-    <<
-      @header_size_10, @knxnetip_version_10,
-      service_type::16,
-      @header_size_10 + body_length::16
-    >>
   end
 end
