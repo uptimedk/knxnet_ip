@@ -16,8 +16,8 @@ defmodule KNXnetIP.Core do
 
   defmodule HostProtocolAddressInformation do
     defstruct host_protocol_code: :ipv4_udp,
-      ip_address: "127.0.0.1",
-      port: ""
+      ip_address: {127, 0, 0, 1},
+      port: nil
   end
 
   defmodule ConnectionRequestInformation do
@@ -173,10 +173,7 @@ defmodule KNXnetIP.Core do
   defp encode_hpai(%HostProtocolAddressInformation{} = hpai) do
     length = 0x08
     host_protocol_code = constant(:ipv4_udp)
-    {:ok, {ip1, ip2, ip3, ip4}} =
-      hpai.ip_address
-      |> to_charlist()
-      |> :inet.parse_address()
+    {ip1, ip2, ip3, ip4} = hpai.ip_address
     <<
       length, host_protocol_code,
       ip1, ip2, ip3, ip4,
@@ -188,7 +185,7 @@ defmodule KNXnetIP.Core do
     <<ip1, ip2, ip3, ip4, port::16, rest::binary>> = data
     hpai = %HostProtocolAddressInformation{
       host_protocol_code: :ipv4_udp,
-      ip_address: "#{ip1}.#{ip2}.#{ip3}.#{ip4}",
+      ip_address: {ip1, ip2, ip3, ip4},
       port: port
     }
     {hpai, rest}

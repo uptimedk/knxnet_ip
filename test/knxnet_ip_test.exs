@@ -7,11 +7,11 @@ defmodule KNXnetIP.Test do
     test "decode/encode" do
       decoded = %Core.ConnectRequest{
         control_endpoint: %Core.HostProtocolAddressInformation{
-          ip_address: "10.10.42.2",
+          ip_address: {10, 10, 42, 2},
           port: 63134,
         },
         data_endpoint: %Core.HostProtocolAddressInformation{
-          ip_address: "192.168.10.99",
+          ip_address: {192, 168, 10, 99},
           port: 34512,
         },
         connection_request_information: %Core.ConnectionRequestInformation{

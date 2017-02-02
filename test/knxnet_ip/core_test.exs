@@ -18,11 +18,11 @@ defmodule KNXnetIP.CoreTest do
     test "decode/encode for Tunnel connections" do
       decoded = %ConnectRequest{
         control_endpoint: %HostProtocolAddressInformation{
-          ip_address: "10.10.42.2",
+          ip_address: {10, 10, 42, 2},
           port: 63134,
         },
         data_endpoint: %HostProtocolAddressInformation{
-          ip_address: "192.168.10.99",
+          ip_address: {192, 168, 10, 99},
           port: 34512,
         },
         connection_request_information: %ConnectionRequestInformation{
@@ -58,7 +58,7 @@ defmodule KNXnetIP.CoreTest do
         communication_channel_id: 1,
         status: :e_no_error,
         data_endpoint: %HostProtocolAddressInformation{
-          ip_address: "10.10.42.2",
+          ip_address: {10, 10, 42, 2},
           port: 63134,
         },
         connection_response_data_block: %ConnectionResponseDataBlock{
@@ -91,7 +91,7 @@ defmodule KNXnetIP.CoreTest do
       decoded = %ConnectionstateRequest{
         communication_channel_id: 1,
         control_endpoint: %HostProtocolAddressInformation{
-          ip_address: "10.10.42.2",
+          ip_address: {10, 10, 42, 2},
           port: 63134
         }
       }
@@ -132,7 +132,7 @@ defmodule KNXnetIP.CoreTest do
       decoded = %DisconnectRequest{
         communication_channel_id: 1,
         control_endpoint: %HostProtocolAddressInformation{
-          ip_address: "10.10.42.2",
+          ip_address: {10, 10, 42, 2},
           port: 63134,
         },
       }
