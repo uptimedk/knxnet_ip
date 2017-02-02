@@ -14,87 +14,105 @@ defmodule KNXnetIP do
   @tunnelling_request 0x0420
   @tunnelling_ack 0x0421
 
-  def encode(%Core.ConnectRequest{} = req) do
+  def encode(struct) do
+    try do
+      frame = encode!(struct)
+      {:ok, frame}
+    rescue
+      e -> {:error, {:encode_error, e, struct}}
+    end
+  end
+
+  def decode(frame) do
+    try do
+      struct = decode!(frame)
+      {:ok, struct}
+    rescue
+      e -> {:error, {:decode_error, e, frame}}
+    end
+  end
+
+  def encode!(%Core.ConnectRequest{} = req) do
     req
     |> Core.encode_connect_request()
     |> encode_frame(@connect_request)
   end
 
-  def encode(%Core.ConnectResponse{} = resp) do
+  def encode!(%Core.ConnectResponse{} = resp) do
     resp
     |> Core.encode_connect_response()
     |> encode_frame(@connect_response)
   end
 
-  def encode(%Core.ConnectionstateRequest{} = cr) do
+  def encode!(%Core.ConnectionstateRequest{} = cr) do
     cr
     |> Core.encode_connectionstate_request()
     |> encode_frame(@connectionstate_request)
   end
 
-  def encode(%Core.ConnectionstateResponse{} = cr) do
+  def encode!(%Core.ConnectionstateResponse{} = cr) do
     cr
     |> Core.encode_connectionstate_response()
     |> encode_frame(@connectionstate_response)
   end
 
-  def encode(%Core.DisconnectRequest{} = req) do
+  def encode!(%Core.DisconnectRequest{} = req) do
     req
     |> Core.encode_disconnect_request()
     |> encode_frame(@disconnect_request)
   end
 
-  def encode(%Core.DisconnectResponse{} = resp) do
+  def encode!(%Core.DisconnectResponse{} = resp) do
     resp
     |> Core.encode_disconnect_response()
     |> encode_frame(@disconnect_response)
   end
 
-  def encode(%Tunnelling.TunnellingRequest{} = req) do
+  def encode!(%Tunnelling.TunnellingRequest{} = req) do
     req
     |> Tunnelling.encode_tunnelling_request()
     |> encode_frame(@tunnelling_request)
   end
 
-  def encode(%Tunnelling.TunnellingAck{} = req) do
+  def encode!(%Tunnelling.TunnellingAck{} = req) do
     req
     |> Tunnelling.encode_tunnelling_ack()
     |> encode_frame(@tunnelling_ack)
   end
 
-  def decode(<<@header_size_10, @knxnetip_version_10, data::binary>>) do
-    decode(data)
+  def decode!(<<@header_size_10, @knxnetip_version_10, data::binary>>) do
+    do_decode(data)
   end
 
-  def decode(<<@connect_request::16, _length::16, data::binary>>) do
+  def do_decode(<<@connect_request::16, _length::16, data::binary>>) do
     Core.decode_connect_request(data)
   end
 
-  def decode(<<@connect_response::16, _length::16, data::binary>>) do
+  def do_decode(<<@connect_response::16, _length::16, data::binary>>) do
     Core.decode_connect_response(data)
   end
 
-  def decode(<<@connectionstate_request::16, _length::16, data::binary>>) do
+  def do_decode(<<@connectionstate_request::16, _length::16, data::binary>>) do
     Core.decode_connectionstate_request(data)
   end
 
-  def decode(<<@connectionstate_response::16, _length::16, data::binary>>) do
+  def do_decode(<<@connectionstate_response::16, _length::16, data::binary>>) do
     Core.decode_connectionstate_response(data)
   end
 
-  def decode(<<@disconnect_request::16, _length::16, data::binary>>) do
+  def do_decode(<<@disconnect_request::16, _length::16, data::binary>>) do
     Core.decode_disconnect_request(data)
   end
 
-  def decode(<<@disconnect_response::16, _length::16, data::binary>>) do
+  def do_decode(<<@disconnect_response::16, _length::16, data::binary>>) do
     Core.decode_disconnect_response(data)
   end
 
-  def decode(<<@tunnelling_request::16, _length::16, data::binary>>) do
+  def do_decode(<<@tunnelling_request::16, _length::16, data::binary>>) do
     Tunnelling.decode_tunnelling_request(data)
   end
 
-  def decode(<<@tunnelling_ack::16, _length::16, data::binary>>) do
+  def do_decode(<<@tunnelling_ack::16, _length::16, data::binary>>) do
     Tunnelling.decode_tunnelling_ack(data)
   end
 

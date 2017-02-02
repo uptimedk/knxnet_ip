@@ -40,8 +40,8 @@ defmodule KNXnetIP.Test do
         0x02, 0x00
       >>
 
-      assert encoded == KNXnetIP.encode(decoded)
-      assert decoded == KNXnetIP.decode(encoded)
+      assert {:ok, encoded} == KNXnetIP.encode(decoded)
+      assert {:ok, decoded} == KNXnetIP.decode(encoded)
     end
   end
 end
