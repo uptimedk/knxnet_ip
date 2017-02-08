@@ -2,9 +2,12 @@ defmodule KNXnetIP.CEMI do
 
   @l_data_ind 0x29
   @a_group_write 0x02
+  @a_group_read 0x00
 
   def constant(:a_group_write), do: @a_group_write
   def constant(@a_group_write), do: :a_group_write
+  def constant(:a_group_read), do: @a_group_read
+  def constant(@a_group_read), do: :a_group_read
 
   defmodule LDataInd do
     defstruct source: "",
@@ -20,7 +23,6 @@ defmodule KNXnetIP.CEMI do
     npdu = encode_npdu(application_control_field, req.data)
     # data_length is the length of the NPDU, except for the octet containing the TPCI
     data_length = byte_size(npdu) - 1
-
     <<
       @l_data_ind, 0x00,
       0xBC, 0xE0
@@ -58,7 +60,7 @@ defmodule KNXnetIP.CEMI do
 
   defp encode_npdu(application_control_field, data)
       when bit_size(data) <= 6 do
-    <<0x00::6, application_control_field::4, data::6>>
+    <<0x00::6, application_control_field::4, data::bitstring>>
   end
 
   defp encode_npdu(application_control_field, data) do
@@ -66,8 +68,7 @@ defmodule KNXnetIP.CEMI do
   end
 
   defp decode_npdu(<<_tpci::6, application_control_field::4, value::6>>) do
-    {application_control_field, value}
-
+    {application_control_field, <<value::6>>}
   end
 
   defp decode_npdu(<<_tpci::6, application_control_field::4, _::6, value::binary>>) do
