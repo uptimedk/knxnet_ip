@@ -7,12 +7,25 @@ defmodule KNXnetIP.Core do
 
   @tunnel_connection 0x04
   @e_no_error 0x00
+  @e_connection_id 0x21
+  @e_data_connection 0x26
+  @e_knx_connection 0x27
   @ipv4_udp 0x01
+  @connect_request_timeout 10_000
+  @connectionstate_request_timeout 10_000
 
   def constant(:ipv4_udp), do: @ipv4_udp
   def constant(:tunnel_connection), do: @tunnel_connection
   def constant(:e_no_error), do: @e_no_error
   def constant(@e_no_error), do: :e_no_error
+  def constant(:e_connection_id), do: @e_connection_id
+  def constant(@e_connection_id), do: :e_connection_id
+  def constant(:e_data_connection), do: @e_data_connection
+  def constant(@e_data_connection), do: :e_data_connection
+  def constant(:e_knx_connection), do: @e_knx_connection
+  def constant(@e_knx_connection), do: :e_knx_connection
+  def constant(:connect_request_timeout), do: @connect_request_timeout
+  def constant(:connectionstate_request_timeout), do: @connectionstate_request_timeout
 
   defmodule HostProtocolAddressInformation do
     defstruct host_protocol_code: :ipv4_udp,
