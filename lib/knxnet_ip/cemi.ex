@@ -37,7 +37,7 @@ defmodule KNXnetIP.CEMI do
 
   def decode(<<@l_data_ind::8, additional_info_length::8, data::binary>>) do
     offset = 8 * additional_info_length
-    <<_additional_info::size(offset), data::bitstring>> = data
+    <<_additional_info::size(offset), data::binary>> = data
     <<
       _ctrl1::8, _ctrl2::8,
       source::16,
