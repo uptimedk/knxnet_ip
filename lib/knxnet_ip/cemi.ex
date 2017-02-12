@@ -1,28 +1,30 @@
 defmodule KNXnetIP.CEMI do
 
   @l_data_ind 0x29
-  @a_group_write 0x02
   @a_group_read 0x00
+  @a_group_response 0x01
+  @a_group_write 0x02
 
   def constant(:a_group_write), do: @a_group_write
   def constant(@a_group_write), do: :a_group_write
   def constant(:a_group_read), do: @a_group_read
   def constant(@a_group_read), do: :a_group_read
+  def constant(:a_group_response), do: @a_group_response
+  def constant(@a_group_response), do: :a_group_response
 
   defmodule LDataInd do
     defstruct source: "",
       destination: "",
-      application_pdu: nil,
+      application_control_field: nil,
       data: <<>>
   end
 
-  def encode(%LDataInd{} = req) do
-    source = encode_individual_address(req.source)
-    destination = encode_group_address(req.destination)
-    application_control_field = constant(req.application_pdu)
-    npdu = encode_npdu(application_control_field, req.data)
-    # data_length is the length of the NPDU, except for the octet containing the TPCI
-    data_length = byte_size(npdu) - 1
+  def encode(%LDataInd{} = msg) do
+    source = encode_individual_address(msg.source)
+    destination = encode_group_address(msg.destination)
+    application_control_field = constant(msg.application_control_field)
+    tpdu = encode_tpdu(application_control_field, msg.data)
+    data_length = byte_size(tpdu) - 1
     <<
       @l_data_ind, 0x00,
       0xBC, 0xE0
@@ -30,9 +32,9 @@ defmodule KNXnetIP.CEMI do
     source <>
     destination <>
     <<
-      0x00::1, 0x00::3, data_length::4
+      data_length::8
     >> <>
-    npdu
+    tpdu
   end
 
   def decode(<<@l_data_ind::8, additional_info_length::8, data::binary>>) do
@@ -42,36 +44,36 @@ defmodule KNXnetIP.CEMI do
       _ctrl1::8, _ctrl2::8,
       source::16,
       destination::16,
-      _address_type::1, _::3, _data_length::4,
-      npdu::binary
+      _data_length::8,
+      tpdu::binary
     >> = data
 
-    {application_control_field, value} = decode_npdu(npdu)
+    {application_control_field, value} = decode_tpdu(tpdu)
 
     destination = decode_group_address(destination)
 
     %LDataInd{
       source: decode_individual_address(source),
       destination: destination,
-      application_pdu: constant(application_control_field),
+      application_control_field: constant(application_control_field),
       data: value
     }
   end
 
-  defp encode_npdu(application_control_field, data)
+  defp encode_tpdu(application_control_field, data)
       when bit_size(data) <= 6 do
     <<0x00::6, application_control_field::4, data::bitstring>>
   end
 
-  defp encode_npdu(application_control_field, data) do
+  defp encode_tpdu(application_control_field, data) do
     <<0x00::6, application_control_field::4, 0x00::6>> <> data
   end
 
-  defp decode_npdu(<<_tpci::6, application_control_field::4, value::6>>) do
+  defp decode_tpdu(<<_tpci::6, application_control_field::4, value::6>>) do
     {application_control_field, <<value::6>>}
   end
 
-  defp decode_npdu(<<_tpci::6, application_control_field::4, _::6, value::binary>>) do
+  defp decode_tpdu(<<_tpci::6, application_control_field::4, _::6, value::binary>>) do
     {application_control_field, value}
   end
 

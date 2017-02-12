@@ -16,7 +16,7 @@ defmodule KNXnetIP.TunnellingTest do
         cemi_frame: %CEMI.LDataInd{
           source: "1.1.1",
           destination: "0/0/3",
-          application_pdu: :a_group_write,
+          application_control_field: :a_group_write,
           data: <<0x1917::16>>
         }
       }
