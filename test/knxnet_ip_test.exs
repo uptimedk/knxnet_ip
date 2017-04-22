@@ -26,7 +26,7 @@ defmodule KNXnetIP.Test do
         # KNX header
         0x06, 0x10,
         0x0205::16,
-        0x1a::16,
+        0x1A::16,
         # HPAI control endpoint
         0x08, 0x01,
         10, 10, 42, 2,
