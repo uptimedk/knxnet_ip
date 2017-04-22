@@ -1,10 +1,15 @@
 defmodule KNXnetIP.CEMI do
 
   @indication 0x29
+  @confirmation 0x2E
   @group_read 0x00
   @group_response 0x01
   @group_write 0x02
 
+  def constant(@indication), do: :indication
+  def constant(:indication), do: @indication
+  def constant(@confirmation), do: :confirmation
+  def constant(:confirmation), do: @confirmation
   def constant(:group_read), do: @group_read
   def constant(@group_read), do: :group_read
   def constant(:group_write), do: @group_write
@@ -12,21 +17,23 @@ defmodule KNXnetIP.CEMI do
   def constant(:group_response), do: @group_response
   def constant(@group_response), do: :group_response
 
-  defmodule Indication do
-    defstruct source: "",
+  defmodule Frame do
+    defstruct type: nil,
+      source: "",
       destination: "",
       service: nil,
       value: <<>>
   end
 
-  def encode(%Indication{} = msg) do
+  def encode(%Frame{} = msg) do
+    message_code = constant(msg.type)
     source = encode_individual_address(msg.source)
     destination = encode_group_address(msg.destination)
     application_control_field = constant(msg.service)
     tpdu = encode_tpdu(application_control_field, msg.value)
     data_length = byte_size(tpdu) - 1
     <<
-      @indication, 0x00,
+      message_code, 0x00,
       0xBC, 0xE0
     >> <>
     source <>
@@ -37,7 +44,7 @@ defmodule KNXnetIP.CEMI do
     tpdu
   end
 
-  def decode(<<@indication::8, additional_info_length::8, data::binary>>) do
+  def decode(<<message_code::8, additional_info_length::8, data::binary>>) do
     offset = 8 * additional_info_length
     <<_additional_info::size(offset), data::binary>> = data
     <<
@@ -50,11 +57,10 @@ defmodule KNXnetIP.CEMI do
 
     {application_control_field, value} = decode_tpdu(tpdu)
 
-    destination = decode_group_address(destination)
-
-    %Indication{
+    %Frame{
+      type: constant(message_code),
       source: decode_individual_address(source),
-      destination: destination,
+      destination: decode_group_address(destination),
       service: constant(application_control_field),
       value: value
     }

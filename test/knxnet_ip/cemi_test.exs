@@ -5,7 +5,8 @@ defmodule KNXnetIP.CEMITest do
 
   describe "L_Data.ind" do
     test "decode/encode A_GroupValue_Write" do
-      decoded = %CEMI.Indication{
+      decoded = %CEMI.Frame{
+        type: :indication,
         source: "1.1.1",
         destination: "0/0/3",
         service: :group_write,
@@ -27,7 +28,8 @@ defmodule KNXnetIP.CEMITest do
     end
 
     test "decode/encode A_GroupValue_Read with 1 byte octet count" do
-      decoded = %CEMI.Indication{
+      decoded = %CEMI.Frame{
+        type: :indication,
         source: "1.0.3",
         destination: "0/0/3",
         service: :group_read,
@@ -48,7 +50,8 @@ defmodule KNXnetIP.CEMITest do
     end
 
     test "decode/encode A_GroupValue_Response with 5 byte octet count" do
-      decoded = %CEMI.Indication{
+      decoded = %CEMI.Frame{
+        type: :indication,
         source: "1.1.4",
         destination: "0/0/2",
         service: :group_response,
@@ -68,6 +71,29 @@ defmodule KNXnetIP.CEMITest do
       assert decoded == CEMI.decode(encoded)
       assert encoded == CEMI.encode(decoded)
     end
+  end
 
+  describe "L_Data.con" do
+    test "decode/encode A_GroupValue_Read with 1 byte octet count" do
+      decoded = %CEMI.Frame{
+        type: :confirmation,
+        source: "1.0.1",
+        destination: "0/0/7",
+        service: :group_read,
+        value: <<0::size(6)>>
+      }
+
+      encoded = <<
+        0x2E, 0x00,
+        0xBC, 0xE0,
+        16, 1,
+        0, 7,
+        0x01,
+        0, 0
+      >>
+
+      assert decoded == CEMI.decode(encoded)
+      assert encoded == CEMI.encode(decoded)
+    end
   end
 end
