@@ -1,32 +1,32 @@
 defmodule KNXnetIP.CEMI do
 
-  @l_data_ind 0x29
-  @a_group_read 0x00
-  @a_group_response 0x01
-  @a_group_write 0x02
+  @indication 0x29
+  @group_read 0x00
+  @group_response 0x01
+  @group_write 0x02
 
-  def constant(:a_group_write), do: @a_group_write
-  def constant(@a_group_write), do: :a_group_write
-  def constant(:a_group_read), do: @a_group_read
-  def constant(@a_group_read), do: :a_group_read
-  def constant(:a_group_response), do: @a_group_response
-  def constant(@a_group_response), do: :a_group_response
+  def constant(:group_read), do: @group_read
+  def constant(@group_read), do: :group_read
+  def constant(:group_write), do: @group_write
+  def constant(@group_write), do: :group_write
+  def constant(:group_response), do: @group_response
+  def constant(@group_response), do: :group_response
 
-  defmodule LDataInd do
+  defmodule Indication do
     defstruct source: "",
       destination: "",
-      application_control_field: nil,
-      data: <<>>
+      service: nil,
+      value: <<>>
   end
 
-  def encode(%LDataInd{} = msg) do
+  def encode(%Indication{} = msg) do
     source = encode_individual_address(msg.source)
     destination = encode_group_address(msg.destination)
-    application_control_field = constant(msg.application_control_field)
-    tpdu = encode_tpdu(application_control_field, msg.data)
+    application_control_field = constant(msg.service)
+    tpdu = encode_tpdu(application_control_field, msg.value)
     data_length = byte_size(tpdu) - 1
     <<
-      @l_data_ind, 0x00,
+      @indication, 0x00,
       0xBC, 0xE0
     >> <>
     source <>
@@ -37,7 +37,7 @@ defmodule KNXnetIP.CEMI do
     tpdu
   end
 
-  def decode(<<@l_data_ind::8, additional_info_length::8, data::binary>>) do
+  def decode(<<@indication::8, additional_info_length::8, data::binary>>) do
     offset = 8 * additional_info_length
     <<_additional_info::size(offset), data::binary>> = data
     <<
@@ -52,21 +52,21 @@ defmodule KNXnetIP.CEMI do
 
     destination = decode_group_address(destination)
 
-    %LDataInd{
+    %Indication{
       source: decode_individual_address(source),
       destination: destination,
-      application_control_field: constant(application_control_field),
-      data: value
+      service: constant(application_control_field),
+      value: value
     }
   end
 
-  defp encode_tpdu(application_control_field, data)
-      when bit_size(data) <= 6 do
-    <<0x00::6, application_control_field::4, data::bitstring>>
+  defp encode_tpdu(application_control_field, value)
+      when bit_size(value) <= 6 do
+    <<0x00::6, application_control_field::4, value::bitstring>>
   end
 
-  defp encode_tpdu(application_control_field, data) do
-    <<0x00::6, application_control_field::4, 0x00::6>> <> data
+  defp encode_tpdu(application_control_field, value) do
+    <<0x00::6, application_control_field::4, 0x00::6>> <> value
   end
 
   defp decode_tpdu(<<_tpci::6, application_control_field::4, value::6>>) do

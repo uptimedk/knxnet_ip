@@ -13,11 +13,11 @@ defmodule KNXnetIP.TunnellingTest do
       decoded = %TunnellingRequest{
         communication_channel_id: 1,
         sequence_counter: 0,
-        cemi_frame: %CEMI.LDataInd{
+        cemi_frame: %CEMI.Indication{
           source: "1.1.1",
           destination: "0/0/3",
-          application_control_field: :a_group_write,
-          data: <<0x1917::16>>
+          service: :group_write,
+          value: <<0x1917::16>>
         }
       }
 

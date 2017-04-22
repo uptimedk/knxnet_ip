@@ -5,11 +5,11 @@ defmodule KNXnetIP.CEMITest do
 
   describe "L_Data.ind" do
     test "decode/encode A_GroupValue_Write" do
-      decoded = %CEMI.LDataInd{
+      decoded = %CEMI.Indication{
         source: "1.1.1",
         destination: "0/0/3",
-        application_control_field: :a_group_write,
-        data: <<0x1917::16>>
+        service: :group_write,
+        value: <<0x1917::16>>
       }
 
       encoded = <<
@@ -27,11 +27,11 @@ defmodule KNXnetIP.CEMITest do
     end
 
     test "decode/encode A_GroupValue_Read with 1 byte octet count" do
-      decoded = %CEMI.LDataInd{
+      decoded = %CEMI.Indication{
         source: "1.0.3",
         destination: "0/0/3",
-        application_control_field: :a_group_read,
-        data: <<0::6>>,
+        service: :group_read,
+        value: <<0::6>>,
       }
 
       encoded = <<
@@ -48,11 +48,11 @@ defmodule KNXnetIP.CEMITest do
     end
 
     test "decode/encode A_GroupValue_Response with 5 byte octet count" do
-      decoded = %CEMI.LDataInd{
+      decoded = %CEMI.Indication{
         source: "1.1.4",
         destination: "0/0/2",
-        application_control_field: :a_group_response,
-        data: <<0x41, 0x46, 0x8F, 0x5C>>
+        service: :group_response,
+        value: <<0x41, 0x46, 0x8F, 0x5C>>
       }
 
       encoded = <<
