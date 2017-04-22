@@ -6,19 +6,13 @@ defmodule KNXnetIP.TunnellingTest do
     TunnellingRequest,
     TunnellingAck,
   }
-  alias KNXnetIP.CEMI
 
   describe "TUNNELLING_REQUEST" do
     test "decode/encode" do
       decoded = %TunnellingRequest{
         communication_channel_id: 1,
         sequence_counter: 0,
-        cemi_frame: %CEMI.Indication{
-          source: "1.1.1",
-          destination: "0/0/3",
-          service: :group_write,
-          value: <<0x1917::16>>
-        }
+        cemi_frame: <<41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128,25, 23>>
       }
 
       encoded = <<

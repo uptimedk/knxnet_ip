@@ -11,7 +11,7 @@ defmodule KNXnetIP.Tunnelling do
   defmodule TunnellingRequest do
     defstruct communication_channel_id: nil,
       sequence_counter: nil,
-      cemi_frame: %{}
+      cemi_frame: <<>>
   end
 
   defmodule TunnellingAck do
@@ -23,21 +23,18 @@ defmodule KNXnetIP.Tunnelling do
   def encode_tunnelling_request(req) do
     length = 0x04
     reserved = 0x00
-    cemi_frame = KNXnetIP.CEMI.encode(req.cemi_frame)
     <<
       length, req.communication_channel_id,
       req.sequence_counter, reserved
-    >> <> cemi_frame
+    >> <> req.cemi_frame
   end
 
   def decode_tunnelling_request(data) do
     <<
       _length, communication_channel_id,
       sequence_counter, 0x00,
-      rest::binary
+      cemi_frame::binary
     >> = data
-
-    cemi_frame = KNXnetIP.CEMI.decode(rest)
 
     %TunnellingRequest{
       communication_channel_id: communication_channel_id,
