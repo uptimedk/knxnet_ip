@@ -102,10 +102,10 @@ defmodule KNXnetIP.Tunnel do
     :inet.setopts(socket, active: 1)
     case KNXnetIP.decode(data) do
       {:ok, msg} ->
-        Logger.debug("received frame: #{inspect(msg)}")
+        Logger.debug("#{inspect(state.server_ip)} received frame: #{inspect(msg)}")
         on_message(msg, state)
       {:error, error} ->
-        Logger.warn("error decoding #{inspect(data)}: #{inspect(error)}")
+        Logger.warn("#{inspect(state.server_ip)} error decoding #{inspect(data)}: #{inspect(error)}")
         {:noreply, state}
     end
   end
@@ -380,17 +380,17 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp send_control(msg, state) do
-    Logger.debug("Sending #{inspect(msg)}")
+    Logger.debug("#{inspect(state.server_ip)} sending #{inspect(msg)}")
     {:ok, frame} = KNXnetIP.encode(msg)
     :gen_udp.send(state.control_socket, state.server_ip, state.server_control_port, frame)
-    Logger.debug("Sent #{inspect(frame)}")
+    Logger.debug("#{inspect(state.server_ip)} sent #{inspect(frame)}")
   end
 
   defp send_data(msg, state) do
-    Logger.debug("Sending #{inspect(msg)}")
+    Logger.debug("#{inspect(state.server_ip)} sending #{inspect(msg)}")
     {:ok, frame} = KNXnetIP.encode(msg)
     :gen_udp.send(state.data_socket, state.server_ip, state.server_data_port, frame)
-    Logger.debug("Sent #{inspect(frame)}")
+    Logger.debug("#{inspect(state.server_ip)} sent #{inspect(frame)}")
   end
 
   defp new_timer(timeout) do
@@ -459,7 +459,7 @@ defmodule KNXnetIP.Tunnel do
     case try_decode_cemi(msg.cemi_frame) do
       {:ok, telegram} -> apply(state.mod, function, [telegram, state.mod_state])
       {:error, error} ->
-        Logger.warn("error decoding #{inspect(msg.cemi_frame)}: #{inspect(error)}")
+        Logger.warn("#{inspect(state.server_ip)} error decoding #{inspect(msg.cemi_frame)}: #{inspect(error)}")
         {:ok, state.mod_state}
     end
   end
