@@ -136,7 +136,8 @@ defmodule KNXnetIP.Tunnel do
     handle_message(msg, state)
   end
 
-  def on_message(_msg, %{communication_channel_id: nil} = state) do
+  def on_message(%{communication_channel_id: remote_id}, %{communication_channel_id: local_id} = state)
+      when remote_id != local_id or local_id == nil do
     {:noreply, state}
   end
 

@@ -331,6 +331,21 @@ defmodule KNXnetIP.TunnelTest do
     end
   end
 
+  describe "on_message/2 wrong communication_channel_id" do
+    setup [:server_sockets, :init, :connect]
+
+    @tag :wrong_communication_channel_id
+    test "does not respond when communication_channel_id in message and state are unequal", context do
+      tunnelling_request = %{tunnelling_request() |
+        communication_channel_id: context.state.communication_channel_id + Enum.random(1..10)
+      }
+      {:noreply, _state} = Tunnel.on_message(tunnelling_request, context.state)
+
+      assert {:error, :timeout} = :gen_udp.recv(context.control_socket, 0, 100)
+      assert {:error, :timeout} = :gen_udp.recv(context.data_socket, 0, 100)
+    end
+  end
+
   describe "on_message/2 connect response when status e_no_error" do
     setup [:server_sockets, :init]
 
