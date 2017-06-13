@@ -79,13 +79,12 @@ defmodule KNXnetIP.Tunnel do
       |> Map.put(:communication_channel_id, nil)
       |> Map.put(:disconnect_info, nil)
 
-    :ok = :gen_udp.close(state.control_socket)
-    :ok = :gen_udp.close(state.data_socket)
-
     case info do
       {:error, _} ->
-        {:connect, :init, state}
+        {:connect, :retry, state}
       _ ->
+        :ok = :gen_udp.close(state.control_socket)
+        :ok = :gen_udp.close(state.data_socket)
         {:stop, :normal, state}
     end
   end
