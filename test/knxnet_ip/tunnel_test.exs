@@ -63,7 +63,7 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :disconnect
     test "returns connect tuple on error", context do
-      assert {:connect, :init, _state} = Tunnel.disconnect({:error, :expected}, context.state)
+      assert {:connect, :retry, _state} = Tunnel.disconnect({:error, :expected}, context.state)
     end
 
     @tag :disconnect
