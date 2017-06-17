@@ -465,7 +465,7 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp try_decode_cemi(cemi_frame) do
-    result = try do
+    try do
       telegram = KNXnetIP.CEMI.decode(cemi_frame)
       {:ok, telegram}
     rescue
