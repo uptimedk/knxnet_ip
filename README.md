@@ -22,7 +22,7 @@ defmodule MyApp.Tunnel do
     {:ok, :nil}
   end
 
-  def on_telegram(%KNXnetIP.CEMI.Frame{} = telegram, :nil) do
+  def on_telegram(%KNXnetIP.Telegram{} = telegram, :nil) do
     IO.puts("Tunnel got message: #{inspect(telegram)}")
     {:ok, parent_pid}
   end
@@ -46,7 +46,7 @@ In order to fulfill the requirements of a KNXnet/IP tunnelling client, the libra
   - [x] CONNECTIONSTATE_RESPONSE
   - [x] TUNNELING_REQUEST
   - [x] TUNNELING_ACK
-- cEMI messages
+- Telegrams
   - [x] L_Data.ind
   - [x] L_Data.con
   - [ ] L_Data.req

@@ -12,7 +12,7 @@ defmodule KNXnetIP.TunnellingTest do
       decoded = %TunnellingRequest{
         communication_channel_id: 1,
         sequence_counter: 0,
-        cemi_frame: <<41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128,25, 23>>
+        telegram: <<41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128,25, 23>>
       }
 
       encoded = <<

@@ -1,4 +1,4 @@
-defmodule KNXnetIP.CEMI do
+defmodule KNXnetIP.Telegram do
 
   @indication 0x29
   @confirmation 0x2E
@@ -17,15 +17,13 @@ defmodule KNXnetIP.CEMI do
   def constant(:group_response), do: @group_response
   def constant(@group_response), do: :group_response
 
-  defmodule Frame do
-    defstruct type: nil,
-      source: "",
-      destination: "",
-      service: nil,
-      value: <<>>
-  end
+  defstruct type: nil,
+    source: "",
+    destination: "",
+    service: nil,
+    value: <<>>
 
-  def encode(%Frame{} = msg) do
+  def encode(%__MODULE__{} = msg) do
     message_code = constant(msg.type)
     source = encode_individual_address(msg.source)
     destination = encode_group_address(msg.destination)
@@ -57,7 +55,7 @@ defmodule KNXnetIP.CEMI do
 
     {application_control_field, value} = decode_tpdu(tpdu)
 
-    %Frame{
+    %__MODULE__{
       type: constant(message_code),
       source: decode_individual_address(source),
       destination: decode_group_address(destination),
