@@ -55,22 +55,23 @@ In order to fulfill the requirements of a KNXnet/IP tunnelling client, the libra
   - [x] A_GroupValue_Response
   - [x] A_GroupValue_Write
 - Datapoint types (main group):
-  - [ ] 1
-  - [ ] 2
-  - [ ] 3
-  - [ ] 4
-  - [ ] 5
-  - [ ] 6
-  - [ ] 7
-  - [ ] 8
-  - [ ] 9
-  - [ ] 10
-  - [ ] 11
-  - [ ] 12
-  - [ ] 13
-  - [ ] 14
-  - [ ] 15
-  - [ ] 16
+  - [x] 1
+  - [x] 2
+  - [x] 3
+  - [x] 4
+  - [x] 5
+  - [x] 6
+  - [x] 7
+  - [x] 8
+  - [x] 9
+  - [x] 10
+  - [x] 11
+  - [x] 12
+  - [x] 13
+  - [x] 14
+  - [x] 15
+  - [x] 16
+  - [x] 20
 
 The KNXnetIP.Tunnel behaviour sports the following features:
 

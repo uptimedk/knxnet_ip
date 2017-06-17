@@ -2,11 +2,15 @@
 
 image: elixir:1.4
 
+variables:
+  MIX_ENV: test
+
 test:
   stage: test
   script:
+    - mix local.hex --force
     - mix deps.get
-    - mix test
+    - mix test --exclude not_implemented
   cache:
     paths:
       - deps/
