@@ -1,8 +1,8 @@
-defmodule KNXnetIP.CoreTest do
+defmodule KNXnetIP.Frame.CoreTest do
   use ExUnit.Case
 
-  alias KNXnetIP.Core
-  alias KNXnetIP.Core.{
+  alias KNXnetIP.Frame.Core
+  alias KNXnetIP.Frame.Core.{
     ConnectRequest,
     HostProtocolAddressInformation,
     ConnectionRequestInformation,

@@ -1,7 +1,7 @@
-defmodule KNXnetIP.Test do
+defmodule KNXnetIP.FrameTest do
   use ExUnit.Case
 
-  alias KNXnetIP.Core
+  alias KNXnetIP.Frame.Core
 
   describe "KNXnetIP frame" do
     test "decode/encode" do
@@ -40,8 +40,8 @@ defmodule KNXnetIP.Test do
         0x02, 0x00
       >>
 
-      assert {:ok, encoded} == KNXnetIP.encode(decoded)
-      assert {:ok, decoded} == KNXnetIP.decode(encoded)
+      assert {:ok, encoded} == KNXnetIP.Frame.encode(decoded)
+      assert {:ok, decoded} == KNXnetIP.Frame.decode(encoded)
     end
   end
 end

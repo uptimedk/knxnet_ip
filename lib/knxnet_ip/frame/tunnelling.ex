@@ -1,7 +1,9 @@
-defmodule KNXnetIP.Tunnelling do
+defmodule KNXnetIP.Frame.Tunnelling do
   @moduledoc """
   Implementation of the KNXnet/IP Tunnelling specification (document 3/8/4)
   """
+
+  alias KNXnetIP.Frame.Core
 
   @tunnel_linklayer 0x02
 
@@ -45,7 +47,7 @@ defmodule KNXnetIP.Tunnelling do
 
   def encode_tunnelling_ack(ack) do
     length = 0x04
-    status = KNXnetIP.Core.constant(ack.status)
+    status = Core.constant(ack.status)
     <<
       length, ack.communication_channel_id,
       ack.sequence_counter, status
@@ -61,7 +63,7 @@ defmodule KNXnetIP.Tunnelling do
     %TunnellingAck{
       communication_channel_id: communication_channel_id,
       sequence_counter: sequence_counter,
-      status: KNXnetIP.Core.constant(status)
+      status: Core.constant(status)
     }
   end
 

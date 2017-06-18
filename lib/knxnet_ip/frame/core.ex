@@ -1,9 +1,9 @@
-defmodule KNXnetIP.Core do
+defmodule KNXnetIP.Frame.Core do
   @moduledoc """
   Implementation of the KNXnet/IP Core specification (document 3/8/2)
   """
 
-  alias KNXnetIP.Tunnelling
+  alias KNXnetIP.Frame.Tunnelling
 
   @tunnel_connection 0x04
   @e_no_error 0x00
@@ -44,14 +44,14 @@ defmodule KNXnetIP.Core do
   end
 
   defmodule ConnectRequest do
-    alias KNXnetIP.Core
+    alias KNXnetIP.Frame.Core
     defstruct control_endpoint: %Core.HostProtocolAddressInformation{},
       data_endpoint: %Core.HostProtocolAddressInformation{},
       connection_request_information: %Core.ConnectionRequestInformation{}
   end
 
   defmodule ConnectResponse do
-    alias KNXnetIP.Core
+    alias KNXnetIP.Frame.Core
     defstruct communication_channel_id: nil,
       status: nil,
       data_endpoint: %Core.HostProtocolAddressInformation{},
@@ -59,7 +59,7 @@ defmodule KNXnetIP.Core do
   end
 
   defmodule ConnectionstateRequest do
-    alias KNXnetIP.Core
+    alias KNXnetIP.Frame.Core
     defstruct communication_channel_id: nil,
       control_endpoint: %Core.HostProtocolAddressInformation{}
   end
@@ -70,7 +70,7 @@ defmodule KNXnetIP.Core do
   end
 
   defmodule DisconnectRequest do
-    alias KNXnetIP.Core
+    alias KNXnetIP.Frame.Core
     defstruct communication_channel_id: nil,
       control_endpoint: %Core.HostProtocolAddressInformation{}
   end

@@ -1,8 +1,8 @@
-defmodule KNXnetIP.TunnellingTest do
+defmodule KNXnetIP.Frame.TunnellingTest do
   use ExUnit.Case
 
-  alias KNXnetIP.Tunnelling
-  alias KNXnetIP.Tunnelling.{
+  alias KNXnetIP.Frame.Tunnelling
+  alias KNXnetIP.Frame.Tunnelling.{
     TunnellingRequest,
     TunnellingAck,
   }

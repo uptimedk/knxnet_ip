@@ -3,7 +3,7 @@ defmodule KNXnetIP.Tunnel do
 
   require Logger
 
-  alias KNXnetIP.{Core,Tunnelling}
+  alias KNXnetIP.Frame.{Core,Tunnelling}
 
   @callback init(args :: term) ::
     {:ok, state :: any} |
@@ -99,7 +99,7 @@ defmodule KNXnetIP.Tunnel do
 
   def handle_info({:udp, socket, _ip, _port, data}, state) do
     :inet.setopts(socket, active: 1)
-    case KNXnetIP.decode(data) do
+    case KNXnetIP.Frame.decode(data) do
       {:ok, msg} ->
         Logger.debug("#{inspect(state.server_ip)} received frame: #{inspect(msg)}")
         on_message(msg, state)
@@ -381,14 +381,14 @@ defmodule KNXnetIP.Tunnel do
 
   defp send_control(msg, state) do
     Logger.debug("#{inspect(state.server_ip)} sending #{inspect(msg)}")
-    {:ok, frame} = KNXnetIP.encode(msg)
+    {:ok, frame} = KNXnetIP.Frame.encode(msg)
     :gen_udp.send(state.control_socket, state.server_ip, state.server_control_port, frame)
     Logger.debug("#{inspect(state.server_ip)} sent #{inspect(frame)}")
   end
 
   defp send_data(msg, state) do
     Logger.debug("#{inspect(state.server_ip)} sending #{inspect(msg)}")
-    {:ok, frame} = KNXnetIP.encode(msg)
+    {:ok, frame} = KNXnetIP.Frame.encode(msg)
     :gen_udp.send(state.data_socket, state.server_ip, state.server_data_port, frame)
     Logger.debug("#{inspect(state.server_ip)} sent #{inspect(frame)}")
   end
