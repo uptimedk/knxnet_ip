@@ -16,6 +16,7 @@ defmodule KNXnetIP.Telegram do
   def constant(@group_write), do: :group_write
   def constant(:group_response), do: @group_response
   def constant(@group_response), do: :group_response
+  def constant(_), do: nil
 
   defstruct type: nil,
     source: "",
@@ -23,75 +24,112 @@ defmodule KNXnetIP.Telegram do
     service: nil,
     value: <<>>
 
-  def encode(%__MODULE__{} = msg) do
-    message_code = constant(msg.type)
-    source = encode_individual_address(msg.source)
-    destination = encode_group_address(msg.destination)
-    application_control_field = constant(msg.service)
-    tpdu = encode_tpdu(application_control_field, msg.value)
-    data_length = byte_size(tpdu) - 1
-    <<
-      message_code, 0x00,
-      0xBC, 0xE0
-    >> <>
-    source <>
-    destination <>
-    <<
-      data_length::8
-    >> <>
-    tpdu
+  def decode(<<message_code::8, rest::binary>>) do
+    with {:ok, type} <- decode_message_code(message_code),
+         {:ok, lpdu} <- skip_additional_info(rest),
+         {:ok, source, destination, tpdu} <- decode_addresses(lpdu),
+         {:ok, service, value} <- decode_tpdu(tpdu) do
+      telegram = %__MODULE__{
+        type: type,
+        source: source,
+        destination: destination,
+        service: service,
+        value: value
+      }
+      {:ok, telegram}
+    end
   end
 
-  def decode(<<message_code::8, additional_info_length::8, data::binary>>) do
+  def decode(telegram), do: {:error, {:telegram_decode_error, telegram, "invalid telegram frame"}}
+
+  def decode_message_code(message_code) do
+    case constant(message_code) do
+      nil -> {:error, {:telegram_decode_error, message_code, "unsupported message code"}}
+      type -> {:ok, type}
+    end
+  end
+
+  defp skip_additional_info(<<additional_info_length::8, data::binary>> = rest) do
     offset = 8 * additional_info_length
-    <<_additional_info::size(offset), data::binary>> = data
-    <<
-      _ctrl1::8, _ctrl2::8,
-      source::16,
-      destination::16,
-      _data_length::8,
-      tpdu::binary
-    >> = data
-
-    {application_control_field, value} = decode_tpdu(tpdu)
-
-    %__MODULE__{
-      type: constant(message_code),
-      source: decode_individual_address(source),
-      destination: decode_group_address(destination),
-      service: constant(application_control_field),
-      value: value
-    }
+    try do
+      <<_additional_info::size(offset), lpdu::binary>> = data
+      {:ok, lpdu}
+    rescue
+      MatchError -> {:error, {:telegram_decode_error, rest, "invalid length of additional info"}}
+    end
   end
 
-  defp encode_tpdu(application_control_field, value)
-      when bit_size(value) <= 6 do
-    <<0x00::6, application_control_field::4, value::bitstring>>
+  defp decode_addresses(<<_ctrl::16, source::16-bitstring, destination::16-bitstring, _length::8, tpdu::binary>>) do
+    source = decode_individual_address(source)
+    destination = decode_group_address(destination)
+    {:ok, source, destination, tpdu}
   end
 
-  defp encode_tpdu(application_control_field, value) do
-    <<0x00::6, application_control_field::4, 0x00::6>> <> value
-  end
+  defp decode_addresses(lpdu), do: {:error, {:telegram_decode_error, lpdu, "invalid format of LPDU"}}
 
-  defp decode_tpdu(<<_tpci::6, application_control_field::4, value::6>>) do
-    {application_control_field, <<value::6>>}
+  defp decode_tpdu(<<_tpci::6, application_control_field::4, value::6-bitstring>>) do
+    decode_tpdu(application_control_field, value)
   end
 
   defp decode_tpdu(<<_tpci::6, application_control_field::4, _::6, value::binary>>) do
-    {application_control_field, value}
+    decode_tpdu(application_control_field, value)
+  end
+
+  defp decode_tpdu(tpdu), do: {:error, {:telegram_decode_error, tpdu, "invalid format of TPDU"}}
+
+  defp decode_tpdu(application_control_field, value) do
+    case constant(application_control_field) do
+      nil -> {:error, {:telegram_decode_error, application_control_field, "unsupported application service"}}
+      service -> {:ok, service, value}
+    end
+  end
+
+  defp decode_group_address(<<main_group::5, middle_group::3, subgroup::8>>) do
+    "#{main_group}/#{middle_group}/#{subgroup}"
+  end
+
+  defp decode_individual_address(<<area::4, line::4, bus_device::8>>) do
+    "#{area}.#{line}.#{bus_device}"
+  end
+
+  def encode(%__MODULE__{} = msg) do
+    with {:ok, message_code} <- encode_type(msg.type),
+         {:ok, source} <- encode_individual_address(msg.source),
+         {:ok, destination} <- encode_group_address(msg.destination),
+         {:ok, application_control_field} <- encode_service(msg.service),
+         {:ok, tpdu} <- encode_tpdu(application_control_field, msg.value) do
+      data_length = byte_size(tpdu) - 1
+      telegram = <<
+        message_code, 0x00,
+        0xBC, 0xE0,
+        source::binary,
+        destination::binary,
+        data_length::8,
+        tpdu::binary
+      >>
+      {:ok, telegram}
+    end
+  end
+
+  def encode(msg), do: {:error, {:telegram_encode_error, msg, "msg is not valid telegram"}}
+
+  defp encode_type(message_code) do
+    case constant(message_code) do
+      nil -> {:error, {:telegram_encode_error, message_code, "unsupported message code"}}
+      type -> {:ok, type}
+    end
   end
 
   defp encode_individual_address(address) do
-    [area, line, bus_device] =
+    encoded_address =
       address
       |> String.split(".")
       |> Enum.map(&String.to_integer/1)
-    <<area::4, line::4, bus_device::8>>
-  end
 
-  defp decode_individual_address(address) do
-    <<area::4, line::4, bus_device::8>> = <<address::16>>
-    "#{area}.#{line}.#{bus_device}"
+    case encoded_address do
+      [area, line, bus_device] -> {:ok, <<area::4, line::4, bus_device::8>>}
+      _ -> {:error, {:telegram_encode_error, address, "invalid individual address"}}
+    end
   end
 
   defp encode_group_address(address) do
@@ -101,15 +139,33 @@ defmodule KNXnetIP.Telegram do
 
     case parts do
       [main_group, subgroup] ->
-        <<main_group::5, subgroup::11>>
+        {:ok, <<main_group::5, subgroup::11>>}
       [main_group, middle_group, subgroup] ->
-        <<main_group::5, middle_group::3, subgroup::8>>
-      [free] -> <<free::16>>
+        {:ok, <<main_group::5, middle_group::3, subgroup::8>>}
+      [free] ->
+        {:ok, <<free::16>>}
+      _ -> {:error, {:telegram_encode_error, address, "invalid group address"}}
     end
   end
 
-  def decode_group_address(address) do
-    <<main_group::5, middle_group::3, subgroup::8>> = <<address::16>>
-    "#{main_group}/#{middle_group}/#{subgroup}"
+  defp encode_service(service) do
+    case constant(service) do
+      nil -> {:error, {:telegram_encode_error, service, "unsupported application service"}}
+      application_control_field -> {:ok, application_control_field}
+    end
+  end
+
+  defp encode_tpdu(application_control_field, value)
+      when bit_size(value) == 6 do
+    {:ok, <<0x00::6, application_control_field::4, value::bitstring>>}
+  end
+
+  defp encode_tpdu(application_control_field, value)
+      when byte_size(value) <= 253 do
+    {:ok, <<0x00::6, application_control_field::4, 0x00::6, value::binary>>}
+  end
+
+  defp encode_tpdu(_application_control_field, value) do
+    {:error, {:telegram_encode_error, value, "invalid value for APDU"}}
   end
 end

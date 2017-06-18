@@ -23,8 +23,8 @@ defmodule KNXnetIP.TelegramTest do
         0x1917::16, # data
       >>
 
-      assert decoded == Telegram.decode(encoded)
-      assert encoded == Telegram.encode(decoded)
+      assert {:ok, decoded} == Telegram.decode(encoded)
+      assert {:ok, encoded} == Telegram.encode(decoded)
     end
 
     test "decode/encode A_GroupValue_Read with 1 byte octet count" do
@@ -45,8 +45,8 @@ defmodule KNXnetIP.TelegramTest do
         0x00::6, 0x00::4, 0x00::6, # TPCI, application control field, APCI/data
       >>
 
-      assert decoded == Telegram.decode(encoded)
-      assert encoded == Telegram.encode(decoded)
+      assert {:ok, decoded} == Telegram.decode(encoded)
+      assert {:ok, encoded} == Telegram.encode(decoded)
     end
 
     test "decode/encode A_GroupValue_Response with 5 byte octet count" do
@@ -68,8 +68,8 @@ defmodule KNXnetIP.TelegramTest do
         0x41, 0x46, 0x8F, 0x5C,
       >>
 
-      assert decoded == Telegram.decode(encoded)
-      assert encoded == Telegram.encode(decoded)
+      assert {:ok, decoded} == Telegram.decode(encoded)
+      assert {:ok, encoded} == Telegram.encode(decoded)
     end
   end
 
@@ -92,8 +92,8 @@ defmodule KNXnetIP.TelegramTest do
         0, 0
       >>
 
-      assert decoded == Telegram.decode(encoded)
-      assert encoded == Telegram.encode(decoded)
+      assert {:ok, decoded} == Telegram.decode(encoded)
+      assert {:ok, encoded} == Telegram.encode(decoded)
     end
   end
 end
