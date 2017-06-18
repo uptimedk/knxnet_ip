@@ -738,7 +738,7 @@ defmodule KNXnetIP.TunnelTest do
     %Tunnelling.TunnellingRequest{
       communication_channel_id: 10,
       sequence_counter: sequence_counter,
-      cemi_frame: <<41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128,25, 23>>
+      telegram: <<41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128,25, 23>>
     }
   end
 

@@ -1,11 +1,11 @@
-defmodule KNXnetIP.CEMITest do
+defmodule KNXnetIP.TelegramTest do
   use ExUnit.Case
 
-  alias KNXnetIP.CEMI
+  alias KNXnetIP.Telegram
 
   describe "L_Data.ind" do
     test "decode/encode A_GroupValue_Write" do
-      decoded = %CEMI.Frame{
+      decoded = %Telegram{
         type: :indication,
         source: "1.1.1",
         destination: "0/0/3",
@@ -23,12 +23,12 @@ defmodule KNXnetIP.CEMITest do
         0x1917::16, # data
       >>
 
-      assert decoded == CEMI.decode(encoded)
-      assert encoded == CEMI.encode(decoded)
+      assert {:ok, decoded} == Telegram.decode(encoded)
+      assert {:ok, encoded} == Telegram.encode(decoded)
     end
 
     test "decode/encode A_GroupValue_Read with 1 byte octet count" do
-      decoded = %CEMI.Frame{
+      decoded = %Telegram{
         type: :indication,
         source: "1.0.3",
         destination: "0/0/3",
@@ -45,12 +45,12 @@ defmodule KNXnetIP.CEMITest do
         0x00::6, 0x00::4, 0x00::6, # TPCI, application control field, APCI/data
       >>
 
-      assert decoded == CEMI.decode(encoded)
-      assert encoded == CEMI.encode(decoded)
+      assert {:ok, decoded} == Telegram.decode(encoded)
+      assert {:ok, encoded} == Telegram.encode(decoded)
     end
 
     test "decode/encode A_GroupValue_Response with 5 byte octet count" do
-      decoded = %CEMI.Frame{
+      decoded = %Telegram{
         type: :indication,
         source: "1.1.4",
         destination: "0/0/2",
@@ -68,14 +68,14 @@ defmodule KNXnetIP.CEMITest do
         0x41, 0x46, 0x8F, 0x5C,
       >>
 
-      assert decoded == CEMI.decode(encoded)
-      assert encoded == CEMI.encode(decoded)
+      assert {:ok, decoded} == Telegram.decode(encoded)
+      assert {:ok, encoded} == Telegram.encode(decoded)
     end
   end
 
   describe "L_Data.con" do
     test "decode/encode A_GroupValue_Read with 1 byte octet count" do
-      decoded = %CEMI.Frame{
+      decoded = %Telegram{
         type: :confirmation,
         source: "1.0.1",
         destination: "0/0/7",
@@ -92,8 +92,8 @@ defmodule KNXnetIP.CEMITest do
         0, 0
       >>
 
-      assert decoded == CEMI.decode(encoded)
-      assert encoded == CEMI.encode(decoded)
+      assert {:ok, decoded} == Telegram.decode(encoded)
+      assert {:ok, encoded} == Telegram.encode(decoded)
     end
   end
 end

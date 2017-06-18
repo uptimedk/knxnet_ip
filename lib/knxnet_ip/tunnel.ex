@@ -456,20 +456,11 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp handle_telegram(msg, function, state) do
-    case try_decode_cemi(msg.cemi_frame) do
+    case KNXnetIP.Telegram.decode(msg.telegram) do
       {:ok, telegram} -> apply(state.mod, function, [telegram, state.mod_state])
       {:error, error} ->
-        Logger.warn("#{inspect(state.server_ip)} error decoding #{inspect(msg.cemi_frame)}: #{inspect(error)}")
+        Logger.warn("#{inspect(state.server_ip)} error decoding #{inspect(msg.telegram)}: #{inspect(error)}")
         {:ok, state.mod_state}
-    end
-  end
-
-  defp try_decode_cemi(cemi_frame) do
-    try do
-      telegram = KNXnetIP.CEMI.decode(cemi_frame)
-      {:ok, telegram}
-    rescue
-      e -> {:error, {:encode_error, e, cemi_frame}}
     end
   end
 end
