@@ -9,6 +9,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
 
   def constant(:tunnel_linklayer), do: @tunnel_linklayer
   def constant(@tunnel_linklayer), do: :tunnel_linklayer
+  def constant(_), do: nil
 
   defmodule TunnellingRequest do
     defstruct communication_channel_id: nil,
@@ -31,20 +32,6 @@ defmodule KNXnetIP.Frame.Tunnelling do
     >> <> req.telegram
   end
 
-  def decode_tunnelling_request(data) do
-    <<
-      _length, communication_channel_id,
-      sequence_counter, 0x00,
-      telegram::binary
-    >> = data
-
-    %TunnellingRequest{
-      communication_channel_id: communication_channel_id,
-      sequence_counter: sequence_counter,
-      telegram: telegram
-    }
-  end
-
   def encode_tunnelling_ack(ack) do
     length = 0x04
     status = Core.constant(ack.status)
@@ -54,28 +41,10 @@ defmodule KNXnetIP.Frame.Tunnelling do
     >>
   end
 
-  def decode_tunnelling_ack(data) do
-    <<
-      _length::8, communication_channel_id::8,
-      sequence_counter::8, status::8
-    >> = data
-
-    %TunnellingAck{
-      communication_channel_id: communication_channel_id,
-      sequence_counter: sequence_counter,
-      status: Core.constant(status)
-    }
-  end
-
   def encode_cri(connection_data) do
     knx_layer = constant(connection_data.knx_layer)
     reserved = 0x00
     <<knx_layer, reserved>>
-  end
-
-  def decode_cri(<<knx_layer::8, 0x00::8, rest::binary>>) do
-    connection_data = %{knx_layer: constant(knx_layer)}
-    {connection_data, rest}
   end
 
   def encode_crd(connection_data) do
@@ -86,8 +55,52 @@ defmodule KNXnetIP.Frame.Tunnelling do
     <<area::4, line::4, bus_device>>
   end
 
-  def decode_crd(<<area::4, line::4, bus_device, rest::binary>>) do
-    connection_data = %{knx_individual_address: "#{area}.#{line}.#{bus_device}"}
-    {connection_data, rest}
+  def decode_tunnelling_request(
+      <<
+        _length, communication_channel_id,
+        sequence_counter, _,
+        telegram::binary
+      >>) do
+
+    tunnelling_request = %TunnellingRequest{
+      communication_channel_id: communication_channel_id,
+      sequence_counter: sequence_counter,
+      telegram: telegram
+    }
+    {:ok, tunnelling_request}
   end
+
+  def decode_tunnelling_request(frame),
+    do: {:error, {:frame_decode_error, frame, "invalid format of tunnelling request frame"}}
+
+  def decode_tunnelling_ack(
+      <<
+        _length, communication_channel_id,
+        sequence_counter, status
+      >>) do
+    tunnelling_ack = %TunnellingAck{
+      communication_channel_id: communication_channel_id,
+      sequence_counter: sequence_counter,
+      status: Core.constant(status)
+    }
+    {:ok, tunnelling_ack}
+  end
+
+  def decode_tunnelling_ack(frame),
+    do: {:error, {:frame_decode_error, frame, "invalid format of tunnelling ack frame"}}
+
+  def decode_connection_request_data(<<knx_layer::8, _::8>>) do
+    case constant(knx_layer) do
+      nil -> {:error, {:frame_decode_error, knx_layer, "unsupported KNX layer"}}
+      layer ->
+        {:ok, %{knx_layer: layer}}
+    end
+  end
+
+  def decode_connection_response_data(<<area::4, line::4, bus_device>>) do
+    {:ok, %{knx_individual_address: "#{area}.#{line}.#{bus_device}"}}
+  end
+
+  def decode_connection_response_data(crd),
+    do: {:error, {:frame_decode_error, crd, "invalid format of connection response data block"}}
 end

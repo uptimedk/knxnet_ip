@@ -48,7 +48,7 @@ defmodule KNXnetIP.Frame.CoreTest do
       >>
 
       assert encoded == Core.encode_connect_request(decoded)
-      assert decoded == Core.decode_connect_request(encoded)
+      assert {:ok, decoded} == Core.decode_connect_request(encoded)
     end
   end
 
@@ -82,7 +82,7 @@ defmodule KNXnetIP.Frame.CoreTest do
       >>
 
       assert encoded == Core.encode_connect_response(decoded)
-      assert decoded == Core.decode_connect_response(encoded)
+      assert {:ok, decoded} == Core.decode_connect_response(encoded)
     end
   end
 
@@ -106,7 +106,7 @@ defmodule KNXnetIP.Frame.CoreTest do
       >>
 
       assert encoded == Core.encode_connectionstate_request(decoded)
-      assert decoded == Core.decode_connectionstate_request(encoded)
+      assert {:ok, decoded} == Core.decode_connectionstate_request(encoded)
     end
   end
 
@@ -123,7 +123,7 @@ defmodule KNXnetIP.Frame.CoreTest do
       >>
 
       assert encoded == Core.encode_connectionstate_response(decoded)
-      assert decoded == Core.decode_connectionstate_response(encoded)
+      assert {:ok, decoded} == Core.decode_connectionstate_response(encoded)
     end
   end
 
@@ -146,7 +146,7 @@ defmodule KNXnetIP.Frame.CoreTest do
       >>
 
       assert encoded == Core.encode_disconnect_request(decoded)
-      assert decoded == Core.decode_disconnect_request(encoded)
+      assert {:ok, decoded} == Core.decode_disconnect_request(encoded)
     end
   end
 
@@ -163,7 +163,7 @@ defmodule KNXnetIP.Frame.CoreTest do
       >>
 
       assert encoded == Core.encode_disconnect_response(decoded)
-      assert decoded == Core.decode_disconnect_response(encoded)
+      assert {:ok, decoded} == Core.decode_disconnect_response(encoded)
     end
   end
 end

@@ -12,7 +12,7 @@ defmodule KNXnetIP.Frame.TunnellingTest do
       decoded = %TunnellingRequest{
         communication_channel_id: 1,
         sequence_counter: 0,
-        telegram: <<41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128,25, 23>>
+        telegram: <<41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128, 25, 23>>
       }
 
       encoded = <<
@@ -20,11 +20,11 @@ defmodule KNXnetIP.Frame.TunnellingTest do
         0x04, 0x01,
         0x00, 0x00,
         # cEMI L_Data.ind
-        41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128,25, 23
+        41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128, 25, 23
       >>
 
       assert encoded == Tunnelling.encode_tunnelling_request(decoded)
-      assert decoded == Tunnelling.decode_tunnelling_request(encoded)
+      assert {:ok, decoded} == Tunnelling.decode_tunnelling_request(encoded)
     end
   end
 
@@ -44,7 +44,7 @@ defmodule KNXnetIP.Frame.TunnellingTest do
       >>
 
       assert encoded == Tunnelling.encode_tunnelling_ack(decoded)
-      assert decoded == Tunnelling.decode_tunnelling_ack(encoded)
+      assert {:ok, decoded} == Tunnelling.decode_tunnelling_ack(encoded)
     end
   end
 end

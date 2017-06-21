@@ -22,15 +22,6 @@ defmodule KNXnetIP.Frame do
     end
   end
 
-  def decode(frame) do
-    try do
-      struct = decode!(frame)
-      {:ok, struct}
-    rescue
-      e -> {:error, {:decode_error, e, frame}}
-    end
-  end
-
   def encode!(%Core.ConnectRequest{} = req) do
     req
     |> Core.encode_connect_request()
@@ -79,41 +70,41 @@ defmodule KNXnetIP.Frame do
     |> encode_frame(@tunnelling_ack)
   end
 
-  def decode!(<<@header_size_10, @knxnetip_version_10, data::binary>>) do
-    do_decode(data)
-  end
+  def decode(<<@header_size_10, @knxnetip_version_10, data::binary>>),
+    do: do_decode(data)
 
-  def do_decode(<<@connect_request::16, _length::16, data::binary>>) do
-    Core.decode_connect_request(data)
-  end
+  def decode(frame),
+    do: {:error, {:frame_decode_error, frame, "invalid header size and/or unsupported KNXnetIP version"}}
 
-  def do_decode(<<@connect_response::16, _length::16, data::binary>>) do
-    Core.decode_connect_response(data)
-  end
+  def do_decode(<<@connect_request::16, _length::16, data::binary>>),
+    do: Core.decode_connect_request(data)
 
-  def do_decode(<<@connectionstate_request::16, _length::16, data::binary>>) do
-    Core.decode_connectionstate_request(data)
-  end
+  def do_decode(<<@connect_response::16, _length::16, data::binary>>),
+    do: Core.decode_connect_response(data)
 
-  def do_decode(<<@connectionstate_response::16, _length::16, data::binary>>) do
-    Core.decode_connectionstate_response(data)
-  end
+  def do_decode(<<@connectionstate_request::16, _length::16, data::binary>>),
+    do: Core.decode_connectionstate_request(data)
 
-  def do_decode(<<@disconnect_request::16, _length::16, data::binary>>) do
-    Core.decode_disconnect_request(data)
-  end
+  def do_decode(<<@connectionstate_response::16, _length::16, data::binary>>),
+    do: Core.decode_connectionstate_response(data)
 
-  def do_decode(<<@disconnect_response::16, _length::16, data::binary>>) do
-    Core.decode_disconnect_response(data)
-  end
+  def do_decode(<<@disconnect_request::16, _length::16, data::binary>>),
+    do: Core.decode_disconnect_request(data)
 
-  def do_decode(<<@tunnelling_request::16, _length::16, data::binary>>) do
-    Tunnelling.decode_tunnelling_request(data)
-  end
+  def do_decode(<<@disconnect_response::16, _length::16, data::binary>>),
+    do: Core.decode_disconnect_response(data)
 
-  def do_decode(<<@tunnelling_ack::16, _length::16, data::binary>>) do
-    Tunnelling.decode_tunnelling_ack(data)
-  end
+  def do_decode(<<@tunnelling_request::16, _length::16, data::binary>>),
+    do: Tunnelling.decode_tunnelling_request(data)
+
+  def do_decode(<<@tunnelling_ack::16, _length::16, data::binary>>),
+    do: Tunnelling.decode_tunnelling_ack(data)
+
+  def do_decode(<<service_type::16, _length::16, _data::binary>>),
+    do: {:error, {:frame_decode_error, service_type, "unsupported service type"}}
+
+  def do_decode(frame),
+    do: {:error, {:frame_decode_error, frame, "invalid format of frame header"}}
 
   defp encode_frame(body, service_type) do
     body_length = byte_size(body)
