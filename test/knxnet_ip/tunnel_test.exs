@@ -5,6 +5,8 @@ defmodule KNXnetIP.TunnelTest do
   alias KNXnetIP.Tunnel
 
   defmodule Noop do
+    @behaviour KNXnetIP.Tunnel
+
     def init(nil), do: {:stop, {:error, :expected}}
     def init(_), do: {:ok, :test_state}
 
@@ -64,7 +66,7 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :disconnect
     test "returns connect tuple on error", context do
-      assert {:connect, :retry, _state} = Tunnel.disconnect({:error, :expected}, context.state)
+      assert {:connect, :reconnect, _state} = Tunnel.disconnect({:error, :expected}, context.state)
     end
 
     @tag :disconnect
@@ -116,7 +118,7 @@ defmodule KNXnetIP.TunnelTest do
   describe "handle_timeout/2 connect response" do
 
     @tag :connect_response_timeout
-    test "returns connect tuple for retry" do
+    test "returns connect tuple for reconnect" do
       ref = make_ref()
       state = %{connect_response_timer: %{timer: make_ref(), ref: ref}}
       timeout = {:timeout, :connect_response_timer, ref}
@@ -395,19 +397,19 @@ defmodule KNXnetIP.TunnelTest do
       connect_response = connect_response(data_port, :e_host_protocol_type)
 
       {:ok, state} = Tunnel.connect(:init, context.state)
-      {:connect, :retry, state} = Tunnel.on_message(connect_response, state)
+      {:disconnect, _timeout, state} = Tunnel.on_message(connect_response, state)
 
       refute is_reference(state.connect_response_timer.timer)
       refute is_reference(state.connect_response_timer.ref)
     end
 
     @tag :connect_response
-    test "returns retry connect tuple", context do
+    test "returns disconnect tuple", context do
       {:ok, data_port} = :inet.port(context.data_socket)
       connect_response = connect_response(data_port, :e_host_protocol_type)
 
       {:ok, state} = Tunnel.connect(:init, context.state)
-      assert {:connect, :retry, _state} = Tunnel.on_message(connect_response, state)
+      assert {:disconnect, {:error, :connect_response_error}, _state} = Tunnel.on_message(connect_response, state)
     end
   end
 

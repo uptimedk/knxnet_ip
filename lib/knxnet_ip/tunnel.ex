@@ -41,28 +41,19 @@ defmodule KNXnetIP.Tunnel do
   end
 
   def connect(:init, state) do
-    udp_opts = [
-      :binary,
-      :inet,
-      ip: state.ip
-    ]
 
-    {:ok, control_socket} = :gen_udp.open(state.control_port, [{:active, 10} | udp_opts])
-    {:ok, data_socket} = :gen_udp.open(state.data_port, [{:active, false} | udp_opts])
-    {:ok, control_port} = :inet.port(control_socket)
-    {:ok, data_port} = :inet.port(data_socket)
-
-    state = %{state |
-      control_socket: control_socket,
-      control_port: control_port,
-      data_socket: data_socket,
-      data_port: data_port
+    sockets = open_sockets(state.ip, state.control_port, state.data_port)
+    new_state =  %{state |
+      control_socket: sockets.control_socket,
+      control_port: sockets.control_port,
+      data_socket: sockets.data_socket,
+      data_port: sockets.data_port
     }
 
-    do_connect(state)
+    do_connect(new_state)
   end
 
-  def connect(:retry, state) do
+  def connect(_, state) do
     do_connect(state)
   end
 
@@ -80,8 +71,10 @@ defmodule KNXnetIP.Tunnel do
       |> Map.put(:disconnect_info, nil)
 
     case info do
+      {:error, :connect_response_error} ->
+        {:backoff, state.backoff_timeout, state}
       {:error, _} ->
-        {:connect, :retry, state}
+        {:connect, :reconnect, state}
       _ ->
         :ok = :gen_udp.close(state.control_socket)
         :ok = :gen_udp.close(state.data_socket)
@@ -158,7 +151,8 @@ defmodule KNXnetIP.Tunnel do
 
   defp handle_message(%Core.ConnectResponse{}, state) do
     connect_response_timer = stop_timer(state.connect_response_timer)
-    {:connect, :retry, %{state | connect_response_timer: connect_response_timer}}
+    new_state = %{state | connect_response_timer: connect_response_timer}
+    {:disconnect, {:error, :connect_response_error}, new_state}
   end
 
   defp handle_message(%Core.ConnectionstateResponse{} = msg, state) do
@@ -328,6 +322,26 @@ defmodule KNXnetIP.Tunnel do
       tunnelling_ack_timer: new_timer(tunnel_args[:tunnelling_ack_timeout]),
     }
     {:connect, :init, state}
+  end
+
+  defp open_sockets(ip, control_port, data_port) do
+    udp_opts = [
+      :binary,
+      :inet,
+      ip: ip
+    ]
+
+    {:ok, control_socket} = :gen_udp.open(control_port, [{:active, 10} | udp_opts])
+    {:ok, data_socket} = :gen_udp.open(data_port, [{:active, false} | udp_opts])
+    {:ok, control_port} = :inet.port(control_socket)
+    {:ok, data_port} = :inet.port(data_socket)
+
+    %{
+      control_socket: control_socket,
+      data_socket: data_socket,
+      control_port: control_port,
+      data_port: data_port
+    }
   end
 
   defp do_connect(state) do
