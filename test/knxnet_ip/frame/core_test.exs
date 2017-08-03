@@ -1,5 +1,5 @@
 defmodule KNXnetIP.Frame.CoreTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias KNXnetIP.Frame.Core
   alias KNXnetIP.Frame.Core.{
@@ -47,7 +47,7 @@ defmodule KNXnetIP.Frame.CoreTest do
         0x02, 0x00
       >>
 
-      assert encoded == Core.encode_connect_request(decoded)
+      assert {:ok, encoded} == Core.encode_connect_request(decoded)
       assert {:ok, decoded} == Core.decode_connect_request(encoded)
     end
   end
@@ -81,7 +81,7 @@ defmodule KNXnetIP.Frame.CoreTest do
         1::4, 1::4, 1::8,
       >>
 
-      assert encoded == Core.encode_connect_response(decoded)
+      assert {:ok, encoded} == Core.encode_connect_response(decoded)
       assert {:ok, decoded} == Core.decode_connect_response(encoded)
     end
   end
@@ -105,7 +105,7 @@ defmodule KNXnetIP.Frame.CoreTest do
         63134::16,
       >>
 
-      assert encoded == Core.encode_connectionstate_request(decoded)
+      assert {:ok, encoded} == Core.encode_connectionstate_request(decoded)
       assert {:ok, decoded} == Core.decode_connectionstate_request(encoded)
     end
   end
@@ -122,7 +122,7 @@ defmodule KNXnetIP.Frame.CoreTest do
         1, 0x00,
       >>
 
-      assert encoded == Core.encode_connectionstate_response(decoded)
+      assert {:ok, encoded} == Core.encode_connectionstate_response(decoded)
       assert {:ok, decoded} == Core.decode_connectionstate_response(encoded)
     end
   end
@@ -145,7 +145,7 @@ defmodule KNXnetIP.Frame.CoreTest do
         63134::16,
       >>
 
-      assert encoded == Core.encode_disconnect_request(decoded)
+      assert {:ok, encoded} == Core.encode_disconnect_request(decoded)
       assert {:ok, decoded} == Core.decode_disconnect_request(encoded)
     end
   end
@@ -162,7 +162,7 @@ defmodule KNXnetIP.Frame.CoreTest do
         1, 0x00,
       >>
 
-      assert encoded == Core.encode_disconnect_response(decoded)
+      assert {:ok, encoded} == Core.encode_disconnect_response(decoded)
       assert {:ok, decoded} == Core.decode_disconnect_response(encoded)
     end
   end

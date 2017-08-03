@@ -1,5 +1,5 @@
 defmodule KNXnetIP.FrameTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias KNXnetIP.Frame.Core
 

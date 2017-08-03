@@ -1,5 +1,5 @@
 defmodule KNXnetIP.Frame.TunnellingTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias KNXnetIP.Frame.Tunnelling
   alias KNXnetIP.Frame.Tunnelling.{
@@ -23,7 +23,7 @@ defmodule KNXnetIP.Frame.TunnellingTest do
         41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128, 25, 23
       >>
 
-      assert encoded == Tunnelling.encode_tunnelling_request(decoded)
+      assert {:ok, encoded} == Tunnelling.encode_tunnelling_request(decoded)
       assert {:ok, decoded} == Tunnelling.decode_tunnelling_request(encoded)
     end
   end
@@ -43,7 +43,7 @@ defmodule KNXnetIP.Frame.TunnellingTest do
         0, 0x00,
       >>
 
-      assert encoded == Tunnelling.encode_tunnelling_ack(decoded)
+      assert {:ok, encoded} == Tunnelling.encode_tunnelling_ack(decoded)
       assert {:ok, decoded} == Tunnelling.decode_tunnelling_ack(encoded)
     end
   end

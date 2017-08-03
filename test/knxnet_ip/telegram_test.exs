@@ -1,5 +1,5 @@
 defmodule KNXnetIP.TelegramTest do
-  use ExUnit.Case
+  use ExUnit.Case, async: true
 
   alias KNXnetIP.Telegram
 

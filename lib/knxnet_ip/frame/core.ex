@@ -82,65 +82,120 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   def encode_connect_request(req) do
-    control_endpoint = encode_hpai(req.control_endpoint)
-    data_endpoint = encode_hpai(req.data_endpoint)
-    cri = encode_cri(req.connection_request_information)
-    control_endpoint <> data_endpoint <> cri
+    with {:ok, control_endpoint} <- encode_hpai(req.control_endpoint),
+         {:ok, data_endpoint} <- encode_hpai(req.data_endpoint),
+         {:ok, cri} <- encode_connection_request_information(req.connection_request_information) do
+      {:ok, control_endpoint <> data_endpoint <> cri}
+    end
   end
 
-  def encode_connect_response(resp) do
-    status = constant(resp.status)
-    data_endpoint = encode_hpai(resp.data_endpoint)
-    crd = encode_crd(resp.connection_response_data_block)
-    <<resp.communication_channel_id, status>> <> data_endpoint <> crd
+  def encode_connect_response(%{communication_channel_id: id} =resp)
+      when is_integer(id) and id >= 0 and id <= 255 do
+    with {:ok, status} <- encode_connection_status(resp.status),
+         {:ok, data_endpoint} <- encode_hpai(resp.data_endpoint),
+         {:ok, crd} <- encode_connection_response_data_block(resp.connection_response_data_block) do
+      {:ok, <<id>> <> status <> data_endpoint <> crd}
+    end
   end
 
-  def encode_connectionstate_request(cr) do
-    control_endpoint = encode_hpai(cr.control_endpoint)
-    <<cr.communication_channel_id::8, 0x00::8>> <> control_endpoint
+  def encode_connect_response(%{communication_channel_id: id}),
+    do: {:error, {:frame_encode_error, id, "invalid communication channel id"}}
+
+  def encode_connectionstate_request(%{communication_channel_id: id} = req)
+      when is_integer(id) and id >= 0 and id <= 255 do
+    with {:ok, control_endpoint} <- encode_hpai(req.control_endpoint) do
+      {:ok, <<id, 0x00>> <> control_endpoint}
+    end
   end
 
-  def encode_connectionstate_response(cr) do
-    <<cr.communication_channel_id, constant(cr.status)>>
+  def encode_connectionstate_request(%{communication_channel_id: id}),
+    do: {:error, {:frame_encode_error, id, "invalid communication channel id"}}
+
+  def encode_connectionstate_response(%{communication_channel_id: id} = resp)
+      when is_integer(id) and id >= 0 and id <= 255 do
+    case constant(resp.status) do
+      nil -> {:error, {:frame_encode_error, resp.status, "invalid connection status code"}}
+      status -> {:ok, <<id, status>>}
+    end
   end
 
-  def encode_disconnect_request(req) do
-    control_endpoint = encode_hpai(req.control_endpoint)
-    <<req.communication_channel_id, 0x00>> <> control_endpoint
+  def encode_connectionstate_response(%{communication_channel_id: id}),
+    do: {:error, {:frame_encode_error, id, "invalid communication channel id"}}
+
+  def encode_disconnect_request(%{communication_channel_id: id} = req)
+      when is_integer(id) and id >= 0 and id <= 255 do
+    with {:ok, control_endpoint} <- encode_hpai(req.control_endpoint) do
+      {:ok, <<id, 0x00>> <> control_endpoint}
+    end
   end
 
-  def encode_disconnect_response(resp) do
-    <<resp.communication_channel_id, constant(resp.status)>>
+  def encode_disconnect_request(%{communication_channel_id: id}),
+    do: {:error, {:frame_encode_error, id, "invalid communication channel id"}}
+
+  def encode_disconnect_response(%{communication_channel_id: id} = resp)
+      when is_integer(id) and id >= 0 and id <= 255 do
+    case constant(resp.status) do
+      nil -> {:error, {:frame_encode_error, resp.status, "invalid connection status code"}}
+      status -> {:ok, <<id, status>>}
+    end
   end
 
   defp encode_hpai(%HostProtocolAddressInformation{} = hpai) do
-    length = 0x08
-    host_protocol_code = constant(:ipv4_udp)
-    {ip1, ip2, ip3, ip4} = hpai.ip_address
-    <<
-      length, host_protocol_code,
-      ip1, ip2, ip3, ip4,
-      hpai.port :: 16
-    >>
+    with {:ok, host_protocol_code} <- encode_host_protocol_code(hpai.host_protocol_code),
+         {:ok, ip} <- encode_ip_address(hpai.ip_address),
+         {:ok, port} <- encode_port(hpai.port) do
+      {:ok, <<0x08>> <> host_protocol_code <> ip <> port}
+    end
   end
 
-  defp encode_cri(%ConnectionRequestInformation{} = cri) do
-    connection_data = case cri.connection_type do
-      :tunnel_connection -> Tunnelling.encode_cri(cri.connection_data)
+  defp encode_host_protocol_code(host_protocol_code) do
+    case constant(host_protocol_code) do
+      nil -> {:error, {:frame_encode_error, host_protocol_code, "unsupported host protocol code"}}
+      host_protocol_code -> {:ok, <<host_protocol_code>>}
     end
-    length = 2 + byte_size(connection_data)
-    connection_type = constant(cri.connection_type)
-    <<length, connection_type>> <> connection_data
   end
 
-  defp encode_crd(%ConnectionResponseDataBlock{} = crd) do
-    connection_data = case crd.connection_type do
-      :tunnel_connection -> Tunnelling.encode_crd(crd.connection_data)
-    end
-    length = 2 + byte_size(connection_data)
-    connection_type = constant(crd.connection_type)
-    <<length, connection_type>> <> connection_data
+  defp encode_ip_address({ip1, ip2, ip3, ip4}) do
+    {:ok, <<ip1, ip2, ip3, ip4>>}
   end
+
+  defp encode_ip_address(ip_address),
+    do: {:error, {:frame_encode_error, ip_address, "invalid format of IP address"}}
+
+  defp encode_port(port) when is_integer(port) and
+      port >= 0 and port <= 65535 do
+    {:ok, <<port::16>>}
+  end
+
+  defp encode_port(port),
+    do: {:error, {:frame_encode_error, port, "invalid port number"}}
+
+  defp encode_connection_request_information(%ConnectionRequestInformation{connection_type: :tunnel_connection} = cri) do
+    with {:ok, connection_data} <- Tunnelling.encode_connection_request_data(cri.connection_data) do
+      length = 2 + byte_size(connection_data)
+      {:ok, <<length, @tunnel_connection>> <> connection_data}
+    end
+  end
+
+  defp encode_connection_request_information(cri),
+    do: {:error, {:frame_encode_error, cri, "unsupported connection type"}}
+
+  defp encode_connection_status(status) do
+    case constant(status) do
+      nil -> {:error, {:frame_encode_error, status, "unsupported connection status code"}}
+      status -> {:ok, <<status>>}
+    end
+  end
+
+  defp encode_connection_response_data_block(%ConnectionResponseDataBlock{connection_type: :tunnel_connection} = crd) do
+    with {:ok, connection_data} <- Tunnelling.encode_connection_response_data(crd.connection_data) do
+      length = 2 + byte_size(connection_data)
+      {:ok, <<length, @tunnel_connection>> <> connection_data}
+    end
+  end
+
+  defp encode_connection_response_data_block(crd),
+    do: {:error, {:frame_encode_error, crd, "unsupported connection type"}}
 
   def decode_connect_request(
       <<

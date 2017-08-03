@@ -13,62 +13,56 @@ defmodule KNXnetIP.Frame do
   @tunnelling_request 0x0420
   @tunnelling_ack 0x0421
 
-  def encode(struct) do
-    try do
-      frame = encode!(struct)
-      {:ok, frame}
-    rescue
-      e -> {:error, {:encode_error, e, struct}}
+  def encode(%Core.ConnectRequest{} = req) do
+    with {:ok, body} <- Core.encode_connect_request(req) do
+      encode_frame(body, @connect_request)
     end
   end
 
-  def encode!(%Core.ConnectRequest{} = req) do
-    req
-    |> Core.encode_connect_request()
-    |> encode_frame(@connect_request)
+  def encode(%Core.ConnectResponse{} = resp) do
+    with {:ok, body} <- Core.encode_connect_response(resp) do
+      encode_frame(body, @connect_response)
+    end
   end
 
-  def encode!(%Core.ConnectResponse{} = resp) do
-    resp
-    |> Core.encode_connect_response()
-    |> encode_frame(@connect_response)
+  def encode(%Core.ConnectionstateRequest{} = req) do
+    with {:ok, body} <- Core.encode_connectionstate_request(req) do
+      encode_frame(body, @connectionstate_request)
+    end
   end
 
-  def encode!(%Core.ConnectionstateRequest{} = cr) do
-    cr
-    |> Core.encode_connectionstate_request()
-    |> encode_frame(@connectionstate_request)
+  def encode(%Core.ConnectionstateResponse{} = resp) do
+    with {:ok, body} <- Core.encode_connectionstate_response(resp) do
+      encode_frame(body, @connectionstate_response)
+    end
   end
 
-  def encode!(%Core.ConnectionstateResponse{} = cr) do
-    cr
-    |> Core.encode_connectionstate_response()
-    |> encode_frame(@connectionstate_response)
+  def encode(%Core.DisconnectRequest{} = req) do
+    with {:ok, body} <- Core.encode_disconnect_request(req) do
+      encode_frame(body, @disconnect_request)
+    end
   end
 
-  def encode!(%Core.DisconnectRequest{} = req) do
-    req
-    |> Core.encode_disconnect_request()
-    |> encode_frame(@disconnect_request)
+  def encode(%Core.DisconnectResponse{} = resp) do
+    with {:ok, body} <- Core.encode_disconnect_response(resp) do
+      encode_frame(body, @disconnect_response)
+    end
   end
 
-  def encode!(%Core.DisconnectResponse{} = resp) do
-    resp
-    |> Core.encode_disconnect_response()
-    |> encode_frame(@disconnect_response)
+  def encode(%Tunnelling.TunnellingRequest{} = req) do
+    with {:ok, body} <- Tunnelling.encode_tunnelling_request(req) do
+      encode_frame(body, @tunnelling_request)
+    end
   end
 
-  def encode!(%Tunnelling.TunnellingRequest{} = req) do
-    req
-    |> Tunnelling.encode_tunnelling_request()
-    |> encode_frame(@tunnelling_request)
+  def encode(%Tunnelling.TunnellingAck{} = ack) do
+    with {:ok, body} <- Tunnelling.encode_tunnelling_ack(ack) do
+      encode_frame(body, @tunnelling_ack)
+    end
   end
 
-  def encode!(%Tunnelling.TunnellingAck{} = req) do
-    req
-    |> Tunnelling.encode_tunnelling_ack()
-    |> encode_frame(@tunnelling_ack)
-  end
+  def encode(frame),
+    do: {:error, {:frame_encode_error}, frame, "invalid or unsupported KNXnetIP frame"}
 
   def decode(<<@header_size_10, @knxnetip_version_10, data::binary>>),
     do: do_decode(data)
@@ -108,7 +102,7 @@ defmodule KNXnetIP.Frame do
 
   defp encode_frame(body, service_type) do
     body_length = byte_size(body)
-    encode_header(service_type, body_length) <> body
+    {:ok, encode_header(service_type, body_length) <> body}
   end
 
   defp encode_header(service_type, body_length) do
