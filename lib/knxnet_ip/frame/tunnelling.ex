@@ -3,13 +3,10 @@ defmodule KNXnetIP.Frame.Tunnelling do
   Implementation of the KNXnet/IP Tunnelling specification (document 3/8/4)
   """
 
-  alias KNXnetIP.Frame.Core
+  alias KNXnetIP.Frame.Constant
 
-  @tunnel_linklayer 0x02
-
-  def constant(:tunnel_linklayer), do: @tunnel_linklayer
-  def constant(@tunnel_linklayer), do: :tunnel_linklayer
-  def constant(_), do: nil
+  @tunnel_connection Constant.by_name(:connection_type, :tunnel_connection)
+  @reserved 0x00
 
   defmodule TunnellingRequest do
     defstruct communication_channel_id: nil,
@@ -31,7 +28,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
   def encode_tunnelling_request(req) do
     with {:ok, id} <- encode_communication_channel_id(req.communication_channel_id),
          {:ok, sequence_counter} <- encode_sequence_counter(req.sequence_counter) do
-      {:ok, <<0x04>> <> id <> sequence_counter <> <<0x00>> <> req.telegram}
+      {:ok, <<@tunnel_connection>> <> id <> sequence_counter <> <<@reserved>> <> req.telegram}
     end
   end
 
@@ -39,7 +36,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
     with {:ok, id} <- encode_communication_channel_id(ack.communication_channel_id),
          {:ok, sequence_counter} <- encode_sequence_counter(ack.sequence_counter),
          {:ok, status} <- encode_tunnelling_ack_status(ack.status) do
-      {:ok, <<0x04>> <> id <> sequence_counter <> status}
+      {:ok, <<@tunnel_connection>> <> id <> sequence_counter <> status}
     end
   end
 
@@ -60,7 +57,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
     do: {:ok, <<counter>>}
 
   defp encode_tunnelling_ack_status(status) do
-    case Core.constant(status) do
+    case Constant.by_name(:tunnelling_ack_status, status) do
       nil -> {:error, {:frame_encode_error, status, "unsupported tunnelling ack status"}}
       status -> {:ok, <<status>>}
     end
@@ -68,7 +65,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
 
   def encode_connection_request_data(%{knx_layer: knx_layer}) do
     with {:ok, knx_layer} <- encode_knx_layer(knx_layer) do
-      {:ok, <<knx_layer, 0x00>>}
+      {:ok, <<knx_layer, @reserved>>}
     end
   end
 
@@ -76,7 +73,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
     do: {:error, {:frame_encode_error, connection_data, "invalid format of connection request data"}}
 
   defp encode_knx_layer(knx_layer) do
-    case constant(knx_layer) do
+    case Constant.by_name(:knx_layer, knx_layer) do
       nil -> {:error, {:frame_encode_error, knx_layer, "unsupported KNX layer"}}
       knx_layer -> {:ok, knx_layer}
     end
@@ -126,7 +123,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
     tunnelling_ack = %TunnellingAck{
       communication_channel_id: communication_channel_id,
       sequence_counter: sequence_counter,
-      status: Core.constant(status)
+      status: Constant.by_value(:tunnelling_ack_status, status)
     }
     {:ok, tunnelling_ack}
   end
@@ -135,7 +132,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
     do: {:error, {:frame_decode_error, frame, "invalid format of tunnelling ack frame"}}
 
   def decode_connection_request_data(<<knx_layer::8, _::8>>) do
-    case constant(knx_layer) do
+    case Constant.by_value(:knx_layer, knx_layer) do
       nil -> {:error, {:frame_decode_error, knx_layer, "unsupported KNX layer"}}
       layer ->
         {:ok, %{knx_layer: layer}}

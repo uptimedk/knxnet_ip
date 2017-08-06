@@ -3,30 +3,13 @@ defmodule KNXnetIP.Frame.Core do
   Implementation of the KNXnet/IP Core specification (document 3/8/2)
   """
 
+  alias KNXnetIP.Frame.Constant
   alias KNXnetIP.Frame.Tunnelling
 
-  @tunnel_connection 0x04
-  @e_no_error 0x00
-  @e_connection_id 0x21
-  @e_data_connection 0x26
-  @e_knx_connection 0x27
-  @ipv4_udp 0x01
-  @connect_request_timeout 10_000
-  @connectionstate_request_timeout 10_000
-
-  def constant(:ipv4_udp), do: @ipv4_udp
-  def constant(:tunnel_connection), do: @tunnel_connection
-  def constant(@tunnel_connection), do: :tunnel_connection
-  def constant(:e_no_error), do: @e_no_error
-  def constant(@e_no_error), do: :e_no_error
-  def constant(:e_connection_id), do: @e_connection_id
-  def constant(@e_connection_id), do: :e_connection_id
-  def constant(:e_data_connection), do: @e_data_connection
-  def constant(@e_data_connection), do: :e_data_connection
-  def constant(:e_knx_connection), do: @e_knx_connection
-  def constant(@e_knx_connection), do: :e_knx_connection
-  def constant(:connect_request_timeout), do: @connect_request_timeout
-  def constant(:connectionstate_request_timeout), do: @connectionstate_request_timeout
+  @e_no_error Constant.by_name(:common, :e_no_error)
+  @tunnel_connection Constant.by_name(:connection_type, :tunnel_connection)
+  @ipv4_udp Constant.by_name(:host_protocol_code, :ipv4_udp)
+  @reserved 0x00
 
   defmodule HostProtocolAddressInformation do
     defstruct host_protocol_code: :ipv4_udp,
@@ -91,7 +74,7 @@ defmodule KNXnetIP.Frame.Core do
 
   def encode_connect_response(%{communication_channel_id: id} =resp)
       when is_integer(id) and id >= 0 and id <= 255 do
-    with {:ok, status} <- encode_connection_status(resp.status),
+    with {:ok, status} <- encode_connect_response_status(resp.status),
          {:ok, data_endpoint} <- encode_hpai(resp.data_endpoint),
          {:ok, crd} <- encode_connection_response_data_block(resp.connection_response_data_block) do
       {:ok, <<id>> <> status <> data_endpoint <> crd}
@@ -104,7 +87,7 @@ defmodule KNXnetIP.Frame.Core do
   def encode_connectionstate_request(%{communication_channel_id: id} = req)
       when is_integer(id) and id >= 0 and id <= 255 do
     with {:ok, control_endpoint} <- encode_hpai(req.control_endpoint) do
-      {:ok, <<id, 0x00>> <> control_endpoint}
+      {:ok, <<id, @reserved>> <> control_endpoint}
     end
   end
 
@@ -113,7 +96,7 @@ defmodule KNXnetIP.Frame.Core do
 
   def encode_connectionstate_response(%{communication_channel_id: id} = resp)
       when is_integer(id) and id >= 0 and id <= 255 do
-    case constant(resp.status) do
+    case Constant.by_name(:connectionstate_response_status, resp.status) do
       nil -> {:error, {:frame_encode_error, resp.status, "invalid connection status code"}}
       status -> {:ok, <<id, status>>}
     end
@@ -125,7 +108,7 @@ defmodule KNXnetIP.Frame.Core do
   def encode_disconnect_request(%{communication_channel_id: id} = req)
       when is_integer(id) and id >= 0 and id <= 255 do
     with {:ok, control_endpoint} <- encode_hpai(req.control_endpoint) do
-      {:ok, <<id, 0x00>> <> control_endpoint}
+      {:ok, <<id, @reserved>> <> control_endpoint}
     end
   end
 
@@ -134,7 +117,7 @@ defmodule KNXnetIP.Frame.Core do
 
   def encode_disconnect_response(%{communication_channel_id: id} = resp)
       when is_integer(id) and id >= 0 and id <= 255 do
-    case constant(resp.status) do
+    case Constant.by_name(:disconnect_response_status, resp.status) do
       nil -> {:error, {:frame_encode_error, resp.status, "invalid connection status code"}}
       status -> {:ok, <<id, status>>}
     end
@@ -149,7 +132,7 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   defp encode_host_protocol_code(host_protocol_code) do
-    case constant(host_protocol_code) do
+    case Constant.by_name(:host_protocol_code, host_protocol_code) do
       nil -> {:error, {:frame_encode_error, host_protocol_code, "unsupported host protocol code"}}
       host_protocol_code -> {:ok, <<host_protocol_code>>}
     end
@@ -180,9 +163,9 @@ defmodule KNXnetIP.Frame.Core do
   defp encode_connection_request_information(cri),
     do: {:error, {:frame_encode_error, cri, "unsupported connection type"}}
 
-  defp encode_connection_status(status) do
-    case constant(status) do
-      nil -> {:error, {:frame_encode_error, status, "unsupported connection status code"}}
+  defp encode_connect_response_status(status) do
+    case Constant.by_name(:connect_response_status, status) do
+      nil -> {:error, {:frame_encode_error, status, "unsupported connect response status code"}}
       status -> {:ok, <<status>>}
     end
   end
@@ -237,8 +220,8 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   def decode_connect_response(<<communication_channel_id, status>>) do
-    case constant(status) do
-      nil -> {:error, {:frame_decode_error, status, "unsupported connection status code"}}
+    case Constant.by_value(:connect_response_status, status) do
+      nil -> {:error, {:frame_decode_error, status, "unsupported connect response status code"}}
       status ->
         connect_response = %ConnectResponse{
           communication_channel_id: communication_channel_id,
@@ -266,8 +249,8 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   def decode_connectionstate_response(<<communication_channel_id, status>>) do
-    case constant(status) do
-      nil -> {:error, {:frame_decode_error, status, "unsupported connection status code"}}
+    case Constant.by_value(:connectionstate_response_status, status) do
+      nil -> {:error, {:frame_decode_error, status, "unsupported connectionstate response status code"}}
       status ->
         connectionstate_response = %ConnectionstateResponse{
           communication_channel_id: communication_channel_id,
@@ -292,8 +275,8 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   def decode_disconnect_response(<<communication_channel_id, status>>) do
-    case constant(status) do
-      nil -> {:error, {:frame_decode_error, status, "unsupported connection status code"}}
+    case Constant.by_value(:disconnect_response_status, status) do
+      nil -> {:error, {:frame_decode_error, status, "unsupported disconnect response status code"}}
       status ->
         disconnect_response = %DisconnectResponse{
           communication_channel_id: communication_channel_id,
