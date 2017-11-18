@@ -115,6 +115,7 @@ defmodule KNXnetIP.Datapoint do
     {:ok, <<number::8>>}
   end
 
+  # credo:disable-for-next-line
   def encode({a, b, c, d, e, f}, "6.020")
       when (a === 0 or a === 1) and
       (b === 0 or b === 1) and
@@ -145,10 +146,11 @@ defmodule KNXnetIP.Datapoint do
   def encode(number, <<"9.", _::binary>>)
       when is_number(number) and
       number >= -671_088.64 and number <= 670_760.96 do
-    encoded = number * 100 |> encode_16bit_float(0)
+    encoded = encode_16bit_float(number * 100, 0)
     {:ok, encoded}
   end
 
+  # credo:disable-for-next-line
   def encode({day, hour, minutes, seconds}, <<"10.", _::binary>>)
       when is_integer(day) and day >= 0 and day <= 7 and
       is_integer(hour) and hour >= 0 and hour <= 23 and
@@ -157,6 +159,7 @@ defmodule KNXnetIP.Datapoint do
     {:ok, <<day::3, hour::5, 0::2, minutes::6, 0::2, seconds::6>>}
   end
 
+  # credo:disable-for-next-line
   def encode({day, month, year}, <<"11.", _::binary>>)
       when is_integer(day) and day >= 1 and day <= 31 and
       is_integer(month) and month >= 1 and month <= 12 and
@@ -183,6 +186,7 @@ defmodule KNXnetIP.Datapoint do
     {:ok, <<number::32-float>>}
   end
 
+  # credo:disable-for-next-line
   def encode({d6, d5, d4, d3, d2, d1, e, p, d, c, index}, <<"15.", _::binary>>)
       when is_integer(d6) and d6 >= 0 and d6 <= 9 and
       is_integer(d5) and d5 >= 0 and d5 <= 9 and

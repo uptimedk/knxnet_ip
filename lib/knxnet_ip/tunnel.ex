@@ -3,7 +3,8 @@ defmodule KNXnetIP.Tunnel do
 
   require Logger
 
-  alias KNXnetIP.Frame.{Core,Tunnelling}
+  alias KNXnetIP.{Frame, Telegram}
+  alias KNXnetIP.Frame.{Core, Tunnelling}
 
   @callback init(args :: term) ::
     {:ok, state :: any} |
@@ -92,12 +93,12 @@ defmodule KNXnetIP.Tunnel do
 
   def handle_info({:udp, socket, _ip, _port, data}, state) do
     :inet.setopts(socket, active: 1)
-    case KNXnetIP.Frame.decode(data) do
+    case Frame.decode(data) do
       {:ok, msg} ->
-        Logger.debug("#{inspect(state.server_ip)} received frame: #{inspect(msg)}")
+        Logger.debug(fn () -> "#{inspect(state.server_ip)} received frame: #{inspect(msg)}" end)
         on_message(msg, state)
       {:error, error} ->
-        Logger.warn("#{inspect(state.server_ip)} error decoding #{inspect(data)}: #{inspect(error)}")
+        Logger.warn(fn () -> "#{inspect(state.server_ip)} error decoding #{inspect(data)}: #{inspect(error)}" end)
         {:noreply, state}
     end
   end
@@ -195,7 +196,7 @@ defmodule KNXnetIP.Tunnel do
     case msg.sequence_counter - state.remote_sequence_counter do
       0 ->
         {:ok, mod_state} = handle_telegram(msg, :on_telegram, state)
-        remote_sequence_counter = if msg.sequence_counter == 255, do: 0, else: msg.sequence_counter + 1
+        remote_sequence_counter = increment_sequence_counter(msg.sequence_counter)
         new_state = %{state |
           mod_state: mod_state,
           remote_sequence_counter: remote_sequence_counter,
@@ -394,17 +395,17 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp send_control(msg, state) do
-    Logger.debug("#{inspect(state.server_ip)} sending #{inspect(msg)}")
-    {:ok, frame} = KNXnetIP.Frame.encode(msg)
+    Logger.debug(fn () -> "#{inspect(state.server_ip)} sending #{inspect(msg)}" end)
+    {:ok, frame} = Frame.encode(msg)
     :gen_udp.send(state.control_socket, state.server_ip, state.server_control_port, frame)
-    Logger.debug("#{inspect(state.server_ip)} sent #{inspect(frame)}")
+    Logger.debug(fn () -> "#{inspect(state.server_ip)} sent #{inspect(frame)}" end)
   end
 
   defp send_data(msg, state) do
-    Logger.debug("#{inspect(state.server_ip)} sending #{inspect(msg)}")
-    {:ok, frame} = KNXnetIP.Frame.encode(msg)
+    Logger.debug(fn () -> "#{inspect(state.server_ip)} sending #{inspect(msg)}" end)
+    {:ok, frame} = Frame.encode(msg)
     :gen_udp.send(state.data_socket, state.server_ip, state.server_data_port, frame)
-    Logger.debug("#{inspect(state.server_ip)} sent #{inspect(frame)}")
+    Logger.debug(fn () -> "#{inspect(state.server_ip)} sent #{inspect(frame)}" end)
   end
 
   defp new_timer(timeout) do
@@ -414,6 +415,9 @@ defmodule KNXnetIP.Tunnel do
       timeout: timeout,
     }
   end
+
+  defp increment_sequence_counter(current) when current >= 255, do: 0
+  defp increment_sequence_counter(current), do: current + 1
 
   defp connect_request(state) do
     %Core.ConnectRequest{
@@ -470,10 +474,10 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp handle_telegram(msg, function, state) do
-    case KNXnetIP.Telegram.decode(msg.telegram) do
+    case Telegram.decode(msg.telegram) do
       {:ok, telegram} -> apply(state.mod, function, [telegram, state.mod_state])
       {:error, error} ->
-        Logger.warn("#{inspect(state.server_ip)} error decoding #{inspect(msg.telegram)}: #{inspect(error)}")
+        Logger.warn(fn () -> "#{inspect(state.server_ip)} error decoding #{inspect(msg.telegram)}: #{inspect(error)}" end)
         {:ok, state.mod_state}
     end
   end
