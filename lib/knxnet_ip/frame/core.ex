@@ -1,6 +1,8 @@
 defmodule KNXnetIP.Frame.Core do
   @moduledoc """
-  Implementation of the KNXnet/IP Core specification (document 3/8/2)
+  Implementation of frame structures defined in KNXnet/IP Core specification
+  (document 3/8/2). This module defines structs to represent the Core frame
+  structures, and functions to encode and decode the binary representation.
   """
 
   alias KNXnetIP.Frame.Constant
@@ -12,22 +14,26 @@ defmodule KNXnetIP.Frame.Core do
   @reserved 0x00
 
   defmodule HostProtocolAddressInformation do
+    @moduledoc false
     defstruct host_protocol_code: :ipv4_udp,
       ip_address: {127, 0, 0, 1},
       port: nil
   end
 
   defmodule ConnectionRequestInformation do
+    @moduledoc false
     defstruct connection_type: nil,
       connection_data: nil
   end
 
   defmodule ConnectionResponseDataBlock do
+    @moduledoc false
     defstruct connection_type: nil,
       connection_data: nil
   end
 
   defmodule ConnectRequest do
+    @moduledoc false
     alias KNXnetIP.Frame.Core
     defstruct control_endpoint: %Core.HostProtocolAddressInformation{},
       data_endpoint: %Core.HostProtocolAddressInformation{},
@@ -35,6 +41,7 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   defmodule ConnectResponse do
+    @moduledoc false
     alias KNXnetIP.Frame.Core
     defstruct communication_channel_id: nil,
       status: nil,
@@ -43,23 +50,27 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   defmodule ConnectionstateRequest do
+    @moduledoc false
     alias KNXnetIP.Frame.Core
     defstruct communication_channel_id: nil,
       control_endpoint: %Core.HostProtocolAddressInformation{}
   end
 
   defmodule ConnectionstateResponse do
+    @moduledoc false
     defstruct communication_channel_id: nil,
       status: nil
   end
 
   defmodule DisconnectRequest do
+    @moduledoc false
     alias KNXnetIP.Frame.Core
     defstruct communication_channel_id: nil,
       control_endpoint: %Core.HostProtocolAddressInformation{}
   end
 
   defmodule DisconnectResponse do
+    @moduledoc false
     defstruct communication_channel_id: nil,
       status: nil
   end

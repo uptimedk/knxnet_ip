@@ -1,4 +1,7 @@
 defmodule KNXnetIP.Datapoint do
+  @moduledoc """
+  Encoding and decoding of datapoints.
+  """
 
   def decode(<<_::5, 0::1>>, <<"1.", _::binary>>), do: {:ok, false}
   def decode(<<_::5, 1::1>>, <<"1.", _::binary>>), do: {:ok, true}

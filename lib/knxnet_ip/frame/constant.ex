@@ -1,4 +1,5 @@
 defmodule KNXnetIP.Frame.Constant.Macro do
+  @moduledoc false
 
   defmacro __before_compile__(_env) do
     quote do
@@ -24,6 +25,8 @@ defmodule KNXnetIP.Frame.Constant.Macro do
 end
 
 defmodule KNXnetIP.Frame.Constant do
+  @moduledoc false
+
   import KNXnetIP.Frame.Constant.Macro
 
   @before_compile KNXnetIP.Frame.Constant.Macro
