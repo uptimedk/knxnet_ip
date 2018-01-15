@@ -65,7 +65,7 @@ defmodule KNXnetIP.Datapoint do
     {:ok, {d6, d5, d4, d3, d2, d1, e, p, d, c, index}}
   end
 
-  def decode(<<0::6>>, <<"16.", _::binary>>), do: {:ok, <<0>>}
+  def decode(<<0::6>>, <<"16.", _::binary>>), do: {:ok, ""}
 
   def decode(characters, "16.000") when byte_size(characters) == 14 do
     case ascii?(characters) do
