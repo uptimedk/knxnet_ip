@@ -1,6 +1,9 @@
 defmodule KNXnetIP.Frame.Tunnelling do
   @moduledoc """
-  Implementation of the KNXnet/IP Tunnelling specification (document 3/8/4)
+  Implementation of frame structures defined in KNXnet/IP Tunnelling
+  specification (document 3/8/4). This module defines structs to represent the
+  Tunnelling frame structures, and functions to encode and decode the binary
+  representation.
   """
 
   alias KNXnetIP.Frame.Constant
@@ -9,12 +12,14 @@ defmodule KNXnetIP.Frame.Tunnelling do
   @reserved 0x00
 
   defmodule TunnellingRequest do
+    @moduledoc false
     defstruct communication_channel_id: nil,
       sequence_counter: nil,
       telegram: <<>>
   end
 
   defmodule TunnellingAck do
+    @moduledoc false
     defstruct communication_channel_id: nil,
       sequence_counter: nil,
       status: nil

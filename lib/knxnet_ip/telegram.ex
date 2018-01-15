@@ -1,4 +1,7 @@
 defmodule KNXnetIP.Telegram do
+  @moduledoc """
+  Encoding and decoding of KNX telegram structures in cEMI format.
+  """
 
   @indication 0x29
   @confirmation 0x2E

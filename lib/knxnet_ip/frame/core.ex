@@ -1,6 +1,8 @@
 defmodule KNXnetIP.Frame.Core do
   @moduledoc """
-  Implementation of the KNXnet/IP Core specification (document 3/8/2)
+  Implementation of frame structures defined in KNXnet/IP Core specification
+  (document 3/8/2). This module defines structs to represent the Core frame
+  structures, and functions to encode and decode the binary representation.
   """
 
   alias KNXnetIP.Frame.Constant
@@ -12,22 +14,26 @@ defmodule KNXnetIP.Frame.Core do
   @reserved 0x00
 
   defmodule HostProtocolAddressInformation do
+    @moduledoc false
     defstruct host_protocol_code: :ipv4_udp,
       ip_address: {127, 0, 0, 1},
       port: nil
   end
 
   defmodule ConnectionRequestInformation do
+    @moduledoc false
     defstruct connection_type: nil,
       connection_data: nil
   end
 
   defmodule ConnectionResponseDataBlock do
+    @moduledoc false
     defstruct connection_type: nil,
       connection_data: nil
   end
 
   defmodule ConnectRequest do
+    @moduledoc false
     alias KNXnetIP.Frame.Core
     defstruct control_endpoint: %Core.HostProtocolAddressInformation{},
       data_endpoint: %Core.HostProtocolAddressInformation{},
@@ -35,6 +41,7 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   defmodule ConnectResponse do
+    @moduledoc false
     alias KNXnetIP.Frame.Core
     defstruct communication_channel_id: nil,
       status: nil,
@@ -43,23 +50,27 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   defmodule ConnectionstateRequest do
+    @moduledoc false
     alias KNXnetIP.Frame.Core
     defstruct communication_channel_id: nil,
       control_endpoint: %Core.HostProtocolAddressInformation{}
   end
 
   defmodule ConnectionstateResponse do
+    @moduledoc false
     defstruct communication_channel_id: nil,
       status: nil
   end
 
   defmodule DisconnectRequest do
+    @moduledoc false
     alias KNXnetIP.Frame.Core
     defstruct communication_channel_id: nil,
       control_endpoint: %Core.HostProtocolAddressInformation{}
   end
 
   defmodule DisconnectResponse do
+    @moduledoc false
     defstruct communication_channel_id: nil,
       status: nil
   end
@@ -72,7 +83,7 @@ defmodule KNXnetIP.Frame.Core do
     end
   end
 
-  def encode_connect_response(%{communication_channel_id: id} =resp)
+  def encode_connect_response(%{communication_channel_id: id} = resp)
       when is_integer(id) and id >= 0 and id <= 255 do
     with {:ok, status} <- encode_connect_response_status(resp.status),
          {:ok, data_endpoint} <- encode_hpai(resp.data_endpoint),
@@ -146,7 +157,7 @@ defmodule KNXnetIP.Frame.Core do
     do: {:error, {:frame_encode_error, ip_address, "invalid format of IP address"}}
 
   defp encode_port(port) when is_integer(port) and
-      port >= 0 and port <= 65535 do
+      port >= 0 and port <= 65_535 do
     {:ok, <<port::16>>}
   end
 
@@ -154,9 +165,9 @@ defmodule KNXnetIP.Frame.Core do
     do: {:error, {:frame_encode_error, port, "invalid port number"}}
 
   defp encode_connection_request_information(%ConnectionRequestInformation{connection_type: :tunnel_connection} = cri) do
-    with {:ok, connection_data} <- Tunnelling.encode_connection_request_data(cri.connection_data) do
-      length = 2 + byte_size(connection_data)
-      {:ok, <<length, @tunnel_connection>> <> connection_data}
+    with {:ok, conn_data} <- Tunnelling.encode_connection_request_data(cri.connection_data) do
+      length = 2 + byte_size(conn_data)
+      {:ok, <<length, @tunnel_connection>> <> conn_data}
     end
   end
 
@@ -171,9 +182,9 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   defp encode_connection_response_data_block(%ConnectionResponseDataBlock{connection_type: :tunnel_connection} = crd) do
-    with {:ok, connection_data} <- Tunnelling.encode_connection_response_data(crd.connection_data) do
-      length = 2 + byte_size(connection_data)
-      {:ok, <<length, @tunnel_connection>> <> connection_data}
+    with {:ok, conn_data} <- Tunnelling.encode_connection_response_data(crd.connection_data) do
+      length = 2 + byte_size(conn_data)
+      {:ok, <<length, @tunnel_connection>> <> conn_data}
     end
   end
 

@@ -1,6 +1,10 @@
 defmodule KNXnetIP.Frame do
-  alias KNXnetIP.Frame.Core
-  alias KNXnetIP.Frame.Tunnelling
+  @moduledoc """
+  Encoding and decoding of frame structures defined in the KNXnet/IP
+  specification.
+  """
+
+  alias KNXnetIP.Frame.{Core, Tunnelling}
 
   @header_size_10 0x06
   @knxnetip_version_10 0x10
@@ -70,34 +74,34 @@ defmodule KNXnetIP.Frame do
   def decode(frame),
     do: {:error, {:frame_decode_error, frame, "invalid header size and/or unsupported KNXnetIP version"}}
 
-  def do_decode(<<@connect_request::16, _length::16, data::binary>>),
+  defp do_decode(<<@connect_request::16, _length::16, data::binary>>),
     do: Core.decode_connect_request(data)
 
-  def do_decode(<<@connect_response::16, _length::16, data::binary>>),
+  defp do_decode(<<@connect_response::16, _length::16, data::binary>>),
     do: Core.decode_connect_response(data)
 
-  def do_decode(<<@connectionstate_request::16, _length::16, data::binary>>),
+  defp do_decode(<<@connectionstate_request::16, _length::16, data::binary>>),
     do: Core.decode_connectionstate_request(data)
 
-  def do_decode(<<@connectionstate_response::16, _length::16, data::binary>>),
+  defp do_decode(<<@connectionstate_response::16, _length::16, data::binary>>),
     do: Core.decode_connectionstate_response(data)
 
-  def do_decode(<<@disconnect_request::16, _length::16, data::binary>>),
+  defp do_decode(<<@disconnect_request::16, _length::16, data::binary>>),
     do: Core.decode_disconnect_request(data)
 
-  def do_decode(<<@disconnect_response::16, _length::16, data::binary>>),
+  defp do_decode(<<@disconnect_response::16, _length::16, data::binary>>),
     do: Core.decode_disconnect_response(data)
 
-  def do_decode(<<@tunnelling_request::16, _length::16, data::binary>>),
+  defp do_decode(<<@tunnelling_request::16, _length::16, data::binary>>),
     do: Tunnelling.decode_tunnelling_request(data)
 
-  def do_decode(<<@tunnelling_ack::16, _length::16, data::binary>>),
+  defp do_decode(<<@tunnelling_ack::16, _length::16, data::binary>>),
     do: Tunnelling.decode_tunnelling_ack(data)
 
-  def do_decode(<<service_type::16, _length::16, _data::binary>>),
+  defp do_decode(<<service_type::16, _length::16, _data::binary>>),
     do: {:error, {:frame_decode_error, service_type, "unsupported service type"}}
 
-  def do_decode(frame),
+  defp do_decode(frame),
     do: {:error, {:frame_decode_error, frame, "invalid format of frame header"}}
 
   defp encode_frame(body, service_type) do
