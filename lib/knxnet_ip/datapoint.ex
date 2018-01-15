@@ -85,6 +85,10 @@ defmodule KNXnetIP.Datapoint do
     end
   end
 
+  def decode(<<c::1, _reserved::1, scene_number::6>>, <<"18.", _::binary>>) do
+    {:ok, {c, scene_number}}
+  end
+
   def decode(<<enum::8>>, <<"20.", _::binary>>), do: {:ok, enum}
 
   def decode(value, datapoint_type) do
@@ -229,6 +233,12 @@ defmodule KNXnetIP.Datapoint do
         null_bits = (14 - byte_size(as_latin1)) * 8
         {:ok, <<as_latin1::binary, 0::size(null_bits)>>}
     end
+  end
+
+  def encode({c, scene_number}, <<"18.", _::binary>>)
+      when (c === 0 or c === 1) and
+      is_integer(c) and c >= 0 and c <= 63 do
+    {:ok, <<c::1, 0::1, scene_number::6>>}
   end
 
   def encode(enum, <<"20.", _::binary>>)
