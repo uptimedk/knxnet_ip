@@ -249,6 +249,16 @@ defmodule KNXnetIP.DatapointTest do
     end
   end
 
+  describe "18.*" do
+    test "decode/encode" do
+      decoded = {1, 24}
+      encoded = <<152>>
+
+      assert {:ok, encoded} == Datapoint.encode(decoded, "18.001")
+      assert {:ok, decoded} == Datapoint.decode(encoded, "18.001")
+    end
+  end
+
   describe "20.*" do
     test "decode/encode" do
       decoded = 124
