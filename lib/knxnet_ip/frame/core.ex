@@ -8,7 +8,7 @@ defmodule KNXnetIP.Frame.Core do
   alias KNXnetIP.Frame.Constant
   alias KNXnetIP.Frame.Tunnelling
 
-  @e_no_error Constant.by_name(:common, :e_no_error)
+  @e_no_error Constant.by_name(:status, :e_no_error)
   @tunnel_connection Constant.by_name(:connection_type, :tunnel_connection)
   @ipv4_udp Constant.by_name(:host_protocol_code, :ipv4_udp)
   @reserved 0x00
@@ -107,7 +107,7 @@ defmodule KNXnetIP.Frame.Core do
 
   def encode_connectionstate_response(%{communication_channel_id: id} = resp)
       when is_integer(id) and id >= 0 and id <= 255 do
-    case Constant.by_name(:connectionstate_response_status, resp.status) do
+    case Constant.by_name(:status, resp.status) do
       nil -> {:error, {:frame_encode_error, resp.status, "invalid connection status code"}}
       status -> {:ok, <<id, status>>}
     end
@@ -128,7 +128,7 @@ defmodule KNXnetIP.Frame.Core do
 
   def encode_disconnect_response(%{communication_channel_id: id} = resp)
       when is_integer(id) and id >= 0 and id <= 255 do
-    case Constant.by_name(:disconnect_response_status, resp.status) do
+    case Constant.by_name(:status, resp.status) do
       nil -> {:error, {:frame_encode_error, resp.status, "invalid connection status code"}}
       status -> {:ok, <<id, status>>}
     end
@@ -175,7 +175,7 @@ defmodule KNXnetIP.Frame.Core do
     do: {:error, {:frame_encode_error, cri, "unsupported connection type"}}
 
   defp encode_connect_response_status(status) do
-    case Constant.by_name(:connect_response_status, status) do
+    case Constant.by_name(:status, status) do
       nil -> {:error, {:frame_encode_error, status, "unsupported connect response status code"}}
       status -> {:ok, <<status>>}
     end
@@ -231,7 +231,7 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   def decode_connect_response(<<communication_channel_id, status>>) do
-    case Constant.by_value(:connect_response_status, status) do
+    case Constant.by_value(:status, status) do
       nil -> {:error, {:frame_decode_error, status, "unsupported connect response status code"}}
       status ->
         connect_response = %ConnectResponse{
@@ -260,7 +260,7 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   def decode_connectionstate_response(<<communication_channel_id, status>>) do
-    case Constant.by_value(:connectionstate_response_status, status) do
+    case Constant.by_value(:status, status) do
       nil -> {:error, {:frame_decode_error, status, "unsupported connectionstate response status code"}}
       status ->
         connectionstate_response = %ConnectionstateResponse{
@@ -286,7 +286,7 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   def decode_disconnect_response(<<communication_channel_id, status>>) do
-    case Constant.by_value(:disconnect_response_status, status) do
+    case Constant.by_value(:status, status) do
       nil -> {:error, {:frame_decode_error, status, "unsupported disconnect response status code"}}
       status ->
         disconnect_response = %DisconnectResponse{

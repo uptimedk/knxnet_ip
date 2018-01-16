@@ -62,7 +62,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
     do: {:ok, <<counter>>}
 
   defp encode_tunnelling_ack_status(status) do
-    case Constant.by_name(:tunnelling_ack_status, status) do
+    case Constant.by_name(:status, status) do
       nil -> {:error, {:frame_encode_error, status, "unsupported tunnelling ack status"}}
       status -> {:ok, <<status>>}
     end
@@ -128,7 +128,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
     tunnelling_ack = %TunnellingAck{
       communication_channel_id: communication_channel_id,
       sequence_counter: sequence_counter,
-      status: Constant.by_value(:tunnelling_ack_status, status)
+      status: Constant.by_value(:status, status)
     }
     {:ok, tunnelling_ack}
   end
