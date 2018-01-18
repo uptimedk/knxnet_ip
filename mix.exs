@@ -4,7 +4,7 @@ defmodule KNXnetIP.Mixfile do
   def project do
     [app: :knxnet_ip,
      version: "0.1.0",
-     elixir: "~> 1.3",
+     elixir: "~> 1.6",
      build_embedded: Mix.env == :prod,
      start_permanent: Mix.env == :prod,
      deps: deps()]

@@ -3,6 +3,8 @@ defmodule KNXnetIP.Datapoint do
   Encoding and decoding of datapoints.
   """
 
+  import KNXnetIP.Guards
+
   def decode(<<_::5, 0::1>>, <<"1.", _::binary>>), do: {:ok, false}
   def decode(<<_::5, 1::1>>, <<"1.", _::binary>>), do: {:ok, true}
 
@@ -40,15 +42,17 @@ defmodule KNXnetIP.Datapoint do
   end
 
   def decode(<<day::3, hour::5, _::2, minutes::6, _::2, seconds::6>>, <<"10.", _::binary>>)
-      when day <= 7 and hour <= 23 and
-      minutes <= 59 and seconds <= 59 do
+      when is_integer_between(day, 0, 7) and
+      is_integer_between(hour, 0, 23) and
+      is_integer_between(minutes, 0, 59) and
+      is_integer_between(seconds, 0, 59) do
     {:ok, {day, hour, minutes, seconds}}
   end
 
   def decode(<<0::3, day::5, 0::4, month::4, 0::1, year::7>>, <<"11.", _::binary>>)
-      when day >= 1 and day <= 31 and
-      month >= 1 and month <= 12 and
-      year >= 0 and year <= 99 do
+      when is_integer_between(day, 1, 31) and
+      is_integer_between(month, 1, 12) and
+      is_integer_between(year, 0, 99) do
     century = if year >= 90, do: 1900, else: 2000
     {:ok, {day, month, century + year}}
   end
@@ -62,9 +66,8 @@ defmodule KNXnetIP.Datapoint do
   def decode(<<number::32-float>>, <<"14.", _::binary>>), do: {:ok, number}
 
   def decode(<<d6::4, d5::4, d4::4, d3::4, d2::4, d1::4, e::1, p::1, d::1, c::1, index::4>>, <<"15.", _::binary>>)
-      when d6 <= 9 and d5 <= 9 and
-      d4 <= 9 and d3 <= 9 and
-      d2 <= 9 and d1 <= 9 do
+      when is_digit(d6) and is_digit(d5) and is_digit(d4) and
+      is_digit(d3) and is_digit(d2) and is_digit(d1) do
     {:ok, {d6, d5, d4, d3, d2, d1, e, p, d, c, index}}
   end
 
@@ -102,15 +105,12 @@ defmodule KNXnetIP.Datapoint do
   def encode(true, <<"1.", _::binary>>), do: {:ok, <<0::5, 1::1>>}
 
   def encode({c, v}, <<"2.", _::binary>>)
-      when (c === 0 or c === 1) and
-      (v === 0 or v === 1) do
+      when is_bit(c) and is_bit(v) do
     {:ok, <<0::4, c::1, v::1>>}
   end
 
   def encode({c, stepcode}, <<"3.", _::binary>>)
-      when (c === 0 or c === 1) and
-      is_integer(stepcode) and
-      stepcode >= 0 and stepcode <= 7 do
+      when is_bit(c) and is_integer_between(stepcode, 0, 7) do
     {:ok, <<0::2, c::1, stepcode::3>>}
   end
 
@@ -125,74 +125,64 @@ defmodule KNXnetIP.Datapoint do
   end
 
   def encode(number, <<"5.", _::binary>>)
-      when is_integer(number) and
-      number >= 0 and number <= 255 do
+      when is_integer_between(number, 0, 255) do
     {:ok, <<number::8>>}
   end
 
   # credo:disable-for-next-line
   def encode({a, b, c, d, e, f}, "6.020")
-      when (a === 0 or a === 1) and
-      (b === 0 or b === 1) and
-      (c === 0 or c === 1) and
-      (d === 0 or d === 1) and
-      (e === 0 or e === 1) and
+      when is_bit(a) and is_bit(b) and
+      is_bit(c) and is_bit(d) and is_bit(e) and
       (f === 0 or f === 2 or f === 4) do
     {:ok, <<a::1, b::1, c::1, d::1, e::1, f::3>>}
   end
   def encode(number, <<"6.", _::binary>>)
-      when is_integer(number) and
-      number >= -128 and number <= 127 do
+      when is_integer_between(number, -128, 127) do
     {:ok, <<number::8-integer-signed>>}
   end
 
   def encode(number, <<"7.", _::binary>>)
-      when is_integer(number) and
-      number >= 0 and number <= 65_535 do
+      when is_integer_between(number, 0, 65_535) do
     {:ok, <<number::16>>}
   end
 
   def encode(number, <<"8.", _::binary>>)
-      when is_integer(number) and
-      number >= -32_768 and number <= 32_767 do
+      when is_integer_between(number, -32_768, 32_767) do
     {:ok, <<number::16-integer-signed>>}
   end
 
   def encode(number, <<"9.", _::binary>>)
-      when is_number(number) and
-      number >= -671_088.64 and number <= 670_760.96 do
+      when is_integer_between(number, -671_088.64, 670_760.96) do
     encoded = encode_16bit_float(number * 100, 0)
     {:ok, encoded}
   end
 
   # credo:disable-for-next-line
   def encode({day, hour, minutes, seconds}, <<"10.", _::binary>>)
-      when is_integer(day) and day >= 0 and day <= 7 and
-      is_integer(hour) and hour >= 0 and hour <= 23 and
-      is_integer(minutes) and minutes >= 0 and minutes <= 59 and
-      is_integer(seconds) and seconds >= 0 and seconds <= 59 do
+      when is_integer_between(day, 0, 7) and
+      is_integer_between(hour, 0, 23) and
+      is_integer_between(minutes, 0, 59) and
+      is_integer_between(seconds, 0, 59) do
     {:ok, <<day::3, hour::5, 0::2, minutes::6, 0::2, seconds::6>>}
   end
 
   # credo:disable-for-next-line
   def encode({day, month, year}, <<"11.", _::binary>>)
-      when is_integer(day) and day >= 1 and day <= 31 and
-      is_integer(month) and month >= 1 and month <= 12 and
-      is_integer(year) and year >= 1990 and year <= 2089 do
+      when is_integer_between(day, 1, 31) and
+      is_integer_between(month, 1, 12) and
+      is_integer_between(year, 1990, 2089) do
     century = if year < 2000, do: 1900, else: 2000
     year = year - century
     {:ok, <<0::3, day::5, 0::4, month::4, 0::1, year::7>>}
   end
 
   def encode(number, <<"12.", _::binary>>)
-      when is_integer(number) and
-      number >= 0 and number <= 4_294_967_295 do
+      when is_integer_between(number, 0, 4_294_967_295) do
     {:ok, <<number::32>>}
   end
 
   def encode(number, <<"13.", _::binary>>)
-      when is_integer(number) and
-      number >= -2_147_483_648 and number <= 2_147_483_647 do
+      when is_integer_between(number, -2_147_483_648, 2_147_483_647) do
     {:ok, <<number::32-integer-signed>>}
   end
 
@@ -203,17 +193,10 @@ defmodule KNXnetIP.Datapoint do
 
   # credo:disable-for-next-line
   def encode({d6, d5, d4, d3, d2, d1, e, p, d, c, index}, <<"15.", _::binary>>)
-      when is_integer(d6) and d6 >= 0 and d6 <= 9 and
-      is_integer(d5) and d5 >= 0 and d5 <= 9 and
-      is_integer(d4) and d4 >= 0 and d4 <= 9 and
-      is_integer(d3) and d3 >= 0 and d3 <= 9 and
-      is_integer(d2) and d2 >= 0 and d2 <= 9 and
-      is_integer(d1) and d1 >= 0 and d1 <= 9 and
-      (e === 0 or e === 1) and
-      (p === 0 or p === 1) and
-      (d === 0 or d === 1) and
-      (c === 0 or c === 1) and
-      is_integer(index) and index >= 0 and index <= 15 do
+      when is_digit(d6) and is_digit(d5) and is_digit(d4) and
+      is_digit(d3) and is_digit(d2) and is_digit(d1) and
+      is_bit(p) and is_bit(d) and is_bit(c) and
+      is_integer_between(index, 0, 15) do
     {:ok, <<d6::4, d5::4, d4::4, d3::4, d2::4, d1::4, e::1, p::1, d::1, c::1, index::4>>}
   end
 
@@ -243,14 +226,13 @@ defmodule KNXnetIP.Datapoint do
   end
 
   def encode({c, scene_number}, <<"18.", _::binary>>)
-      when (c === 0 or c === 1) and
-      is_integer(c) and c >= 0 and c <= 63 do
+      when is_bit(c) and
+      is_integer_between(scene_number, 0, 63) do
     {:ok, <<c::1, 0::1, scene_number::6>>}
   end
 
   def encode(enum, <<"20.", _::binary>>)
-      when is_integer(enum) and
-      enum >= 0 and enum <= 255 do
+      when is_integer_between(enum, 0, 255) do
     {:ok, <<enum::8>>}
   end
 

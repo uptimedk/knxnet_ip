@@ -5,6 +5,8 @@ defmodule KNXnetIP.Frame.Core do
   structures, and functions to encode and decode the binary representation.
   """
 
+  import KNXnetIP.Guards
+
   alias KNXnetIP.Frame.Constant
   alias KNXnetIP.Frame.Tunnelling
 
@@ -84,7 +86,7 @@ defmodule KNXnetIP.Frame.Core do
   end
 
   def encode_connect_response(%{communication_channel_id: id} = resp)
-      when is_integer(id) and id >= 0 and id <= 255 do
+      when is_integer_between(id, 0, 255) do
     with {:ok, status} <- encode_connect_response_status(resp.status),
          {:ok, data_endpoint} <- encode_hpai(resp.data_endpoint),
          {:ok, crd} <- encode_connection_response_data_block(resp.connection_response_data_block) do
@@ -96,7 +98,7 @@ defmodule KNXnetIP.Frame.Core do
     do: {:error, {:frame_encode_error, id, "invalid communication channel id"}}
 
   def encode_connectionstate_request(%{communication_channel_id: id} = req)
-      when is_integer(id) and id >= 0 and id <= 255 do
+      when is_integer_between(id, 0, 255) do
     with {:ok, control_endpoint} <- encode_hpai(req.control_endpoint) do
       {:ok, <<id, @reserved>> <> control_endpoint}
     end
@@ -106,7 +108,7 @@ defmodule KNXnetIP.Frame.Core do
     do: {:error, {:frame_encode_error, id, "invalid communication channel id"}}
 
   def encode_connectionstate_response(%{communication_channel_id: id} = resp)
-      when is_integer(id) and id >= 0 and id <= 255 do
+      when is_integer_between(id, 0, 255) do
     case Constant.by_name(:status, resp.status) do
       nil -> {:error, {:frame_encode_error, resp.status, "invalid connection status code"}}
       status -> {:ok, <<id, status>>}
@@ -117,7 +119,7 @@ defmodule KNXnetIP.Frame.Core do
     do: {:error, {:frame_encode_error, id, "invalid communication channel id"}}
 
   def encode_disconnect_request(%{communication_channel_id: id} = req)
-      when is_integer(id) and id >= 0 and id <= 255 do
+      when is_integer_between(id, 0, 255) do
     with {:ok, control_endpoint} <- encode_hpai(req.control_endpoint) do
       {:ok, <<id, @reserved>> <> control_endpoint}
     end
@@ -127,7 +129,7 @@ defmodule KNXnetIP.Frame.Core do
     do: {:error, {:frame_encode_error, id, "invalid communication channel id"}}
 
   def encode_disconnect_response(%{communication_channel_id: id} = resp)
-      when is_integer(id) and id >= 0 and id <= 255 do
+      when is_integer_between(id, 0, 255) do
     case Constant.by_name(:status, resp.status) do
       nil -> {:error, {:frame_encode_error, resp.status, "invalid connection status code"}}
       status -> {:ok, <<id, status>>}
@@ -156,8 +158,7 @@ defmodule KNXnetIP.Frame.Core do
   defp encode_ip_address(ip_address),
     do: {:error, {:frame_encode_error, ip_address, "invalid format of IP address"}}
 
-  defp encode_port(port) when is_integer(port) and
-      port >= 0 and port <= 65_535 do
+  defp encode_port(port) when is_integer_between(port, 0, 65_535) do
     {:ok, <<port::16>>}
   end
 
