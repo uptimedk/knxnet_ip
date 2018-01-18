@@ -6,6 +6,8 @@ defmodule KNXnetIP.Frame.Tunnelling do
   representation.
   """
 
+  import KNXnetIP.Guards
+
   alias KNXnetIP.Frame.Constant
 
   @tunnel_connection Constant.by_name(:connection_type, :tunnel_connection)
@@ -46,7 +48,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
   end
 
   defp encode_communication_channel_id(id)
-      when not is_integer(id) or id < 0 or id > 255 do
+      when not is_integer_between(id, 0, 255) do
     {:error, {:frame_encode_error, id, "invalid communication channel id"}}
   end
 
@@ -54,7 +56,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
     do: {:ok, <<id>>}
 
   defp encode_sequence_counter(counter)
-      when not is_integer(counter) or counter < 0 or counter > 255 do
+      when not is_integer_between(counter, 0, 255) do
     {:error, {:frame_encode_error, counter, "invalid sequence counter"}}
   end
 

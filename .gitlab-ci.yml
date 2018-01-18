@@ -1,6 +1,6 @@
 ---
 
-image: elixir:1.4
+image: elixir:1.6
 
 variables:
   MIX_ENV: test
