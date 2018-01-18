@@ -68,11 +68,12 @@ defmodule KNXnetIP.Frame do
   def encode(frame),
     do: {:error, {:frame_encode_error}, frame, "invalid or unsupported KNXnetIP frame"}
 
-  def decode(<<@header_size_10, @knxnetip_version_10, data::binary>>),
-    do: do_decode(data)
+  def decode(<<@header_size_10, @knxnetip_version_10, data::binary>>), do: do_decode(data)
 
   def decode(frame),
-    do: {:error, {:frame_decode_error, frame, "invalid header size and/or unsupported KNXnetIP version"}}
+    do:
+      {:error,
+       {:frame_decode_error, frame, "invalid header size and/or unsupported KNXnetIP version"}}
 
   defp do_decode(<<@connect_request::16, _length::16, data::binary>>),
     do: Core.decode_connect_request(data)
@@ -111,7 +112,8 @@ defmodule KNXnetIP.Frame do
 
   defp encode_header(service_type, body_length) do
     <<
-      @header_size_10, @knxnetip_version_10,
+      @header_size_10::8,
+      @knxnetip_version_10::8,
       service_type::16,
       @header_size_10 + body_length::16
     >>
