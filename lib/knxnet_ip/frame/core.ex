@@ -18,63 +18,67 @@ defmodule KNXnetIP.Frame.Core do
   defmodule HostProtocolAddressInformation do
     @moduledoc false
     defstruct host_protocol_code: :ipv4_udp,
-      ip_address: {127, 0, 0, 1},
-      port: nil
+              ip_address: {127, 0, 0, 1},
+              port: nil
   end
 
   defmodule ConnectionRequestInformation do
     @moduledoc false
     defstruct connection_type: nil,
-      connection_data: nil
+              connection_data: nil
   end
 
   defmodule ConnectionResponseDataBlock do
     @moduledoc false
     defstruct connection_type: nil,
-      connection_data: nil
+              connection_data: nil
   end
 
   defmodule ConnectRequest do
     @moduledoc false
     alias KNXnetIP.Frame.Core
+
     defstruct control_endpoint: %Core.HostProtocolAddressInformation{},
-      data_endpoint: %Core.HostProtocolAddressInformation{},
-      connection_request_information: %Core.ConnectionRequestInformation{}
+              data_endpoint: %Core.HostProtocolAddressInformation{},
+              connection_request_information: %Core.ConnectionRequestInformation{}
   end
 
   defmodule ConnectResponse do
     @moduledoc false
     alias KNXnetIP.Frame.Core
+
     defstruct communication_channel_id: nil,
-      status: nil,
-      data_endpoint: %Core.HostProtocolAddressInformation{},
-      connection_response_data_block: %Core.ConnectionResponseDataBlock{}
+              status: nil,
+              data_endpoint: %Core.HostProtocolAddressInformation{},
+              connection_response_data_block: %Core.ConnectionResponseDataBlock{}
   end
 
   defmodule ConnectionstateRequest do
     @moduledoc false
     alias KNXnetIP.Frame.Core
+
     defstruct communication_channel_id: nil,
-      control_endpoint: %Core.HostProtocolAddressInformation{}
+              control_endpoint: %Core.HostProtocolAddressInformation{}
   end
 
   defmodule ConnectionstateResponse do
     @moduledoc false
     defstruct communication_channel_id: nil,
-      status: nil
+              status: nil
   end
 
   defmodule DisconnectRequest do
     @moduledoc false
     alias KNXnetIP.Frame.Core
+
     defstruct communication_channel_id: nil,
-      control_endpoint: %Core.HostProtocolAddressInformation{}
+              control_endpoint: %Core.HostProtocolAddressInformation{}
   end
 
   defmodule DisconnectResponse do
     @moduledoc false
     defstruct communication_channel_id: nil,
-      status: nil
+              status: nil
   end
 
   def encode_connect_request(req) do
@@ -162,10 +166,11 @@ defmodule KNXnetIP.Frame.Core do
     {:ok, <<port::16>>}
   end
 
-  defp encode_port(port),
-    do: {:error, {:frame_encode_error, port, "invalid port number"}}
+  defp encode_port(port), do: {:error, {:frame_encode_error, port, "invalid port number"}}
 
-  defp encode_connection_request_information(%ConnectionRequestInformation{connection_type: :tunnel_connection} = cri) do
+  defp encode_connection_request_information(
+         %ConnectionRequestInformation{connection_type: :tunnel_connection} = cri
+       ) do
     with {:ok, conn_data} <- Tunnelling.encode_connection_request_data(cri.connection_data) do
       length = 2 + byte_size(conn_data)
       {:ok, <<length, @tunnel_connection>> <> conn_data}
@@ -182,7 +187,9 @@ defmodule KNXnetIP.Frame.Core do
     end
   end
 
-  defp encode_connection_response_data_block(%ConnectionResponseDataBlock{connection_type: :tunnel_connection} = crd) do
+  defp encode_connection_response_data_block(
+         %ConnectionResponseDataBlock{connection_type: :tunnel_connection} = crd
+       ) do
     with {:ok, conn_data} <- Tunnelling.encode_connection_response_data(crd.connection_data) do
       length = 2 + byte_size(conn_data)
       {:ok, <<length, @tunnel_connection>> <> conn_data}
@@ -192,11 +199,13 @@ defmodule KNXnetIP.Frame.Core do
   defp encode_connection_response_data_block(crd),
     do: {:error, {:frame_encode_error, crd, "unsupported connection type"}}
 
-  def decode_connect_request(
-      <<
-        _control_length, control_hpai::binary-size(7),
-        _data_length, data_hpai::binary-size(7),
-        _cri_length, cri::binary-size(3)
+  def decode_connect_request(<<
+        _control_length,
+        control_hpai::binary-size(7),
+        _data_length,
+        data_hpai::binary-size(7),
+        _cri_length,
+        cri::binary-size(3)
       >>) do
     with {:ok, control_endpoint} <- decode_hpai(control_hpai),
          {:ok, data_endpoint} <- decode_hpai(data_hpai),
@@ -204,8 +213,9 @@ defmodule KNXnetIP.Frame.Core do
       connect_request = %ConnectRequest{
         control_endpoint: control_endpoint,
         data_endpoint: data_endpoint,
-        connection_request_information: cri,
+        connection_request_information: cri
       }
+
       {:ok, connect_request}
     end
   end
@@ -213,11 +223,13 @@ defmodule KNXnetIP.Frame.Core do
   def decode_connect_request(frame),
     do: {:error, {:frame_decode_error, frame, "invalid format of connect request frame"}}
 
-  def decode_connect_response(
-      <<
-        communication_channel_id, @e_no_error,
-        _data_length, data_hpai::binary-size(7),
-        _crd_length, crd::binary-size(3)
+  def decode_connect_response(<<
+        communication_channel_id,
+        @e_no_error,
+        _data_length,
+        data_hpai::binary-size(7),
+        _crd_length,
+        crd::binary-size(3)
       >>) do
     with {:ok, data_endpoint} <- decode_hpai(data_hpai),
          {:ok, crd} <- decode_connection_response_data_block(crd) do
@@ -227,73 +239,90 @@ defmodule KNXnetIP.Frame.Core do
         data_endpoint: data_endpoint,
         connection_response_data_block: crd
       }
+
       {:ok, connect_response}
     end
   end
 
   def decode_connect_response(<<communication_channel_id, status>>) do
     case Constant.by_value(:status, status) do
-      nil -> {:error, {:frame_decode_error, status, "unsupported connect response status code"}}
+      nil ->
+        {:error, {:frame_decode_error, status, "unsupported connect response status code"}}
+
       status ->
         connect_response = %ConnectResponse{
           communication_channel_id: communication_channel_id,
           status: status
         }
+
         {:ok, connect_response}
     end
   end
 
   def decode_connect_response(connect_response),
-    do: {:error, {:frame_decode_error, connect_response, "invalid format of connect response frame"}}
+    do:
+      {:error,
+       {:frame_decode_error, connect_response, "invalid format of connect response frame"}}
 
-  def decode_connectionstate_request(
-      <<
-        communication_channel_id, _reserved,
-        _control_length, control_hpai::binary
+  def decode_connectionstate_request(<<
+        communication_channel_id,
+        _reserved,
+        _control_length,
+        control_hpai::binary
       >>) do
     with {:ok, control_endpoint} <- decode_hpai(control_hpai) do
       connectionstate_request = %ConnectionstateRequest{
         communication_channel_id: communication_channel_id,
         control_endpoint: control_endpoint
       }
+
       {:ok, connectionstate_request}
     end
   end
 
   def decode_connectionstate_response(<<communication_channel_id, status>>) do
     case Constant.by_value(:status, status) do
-      nil -> {:error, {:frame_decode_error, status, "unsupported connectionstate response status code"}}
+      nil ->
+        {:error,
+         {:frame_decode_error, status, "unsupported connectionstate response status code"}}
+
       status ->
         connectionstate_response = %ConnectionstateResponse{
           communication_channel_id: communication_channel_id,
           status: status
         }
+
         {:ok, connectionstate_response}
     end
   end
 
-  def decode_disconnect_request(
-      <<
-        communication_channel_id, _reserved,
-        _control_length, control_hpai::binary
+  def decode_disconnect_request(<<
+        communication_channel_id,
+        _reserved,
+        _control_length,
+        control_hpai::binary
       >>) do
     with {:ok, control_endpoint} <- decode_hpai(control_hpai) do
       disconnect_request = %DisconnectRequest{
         communication_channel_id: communication_channel_id,
         control_endpoint: control_endpoint
       }
+
       {:ok, disconnect_request}
     end
   end
 
   def decode_disconnect_response(<<communication_channel_id, status>>) do
     case Constant.by_value(:status, status) do
-      nil -> {:error, {:frame_decode_error, status, "unsupported disconnect response status code"}}
+      nil ->
+        {:error, {:frame_decode_error, status, "unsupported disconnect response status code"}}
+
       status ->
         disconnect_response = %DisconnectResponse{
           communication_channel_id: communication_channel_id,
           status: status
         }
+
         {:ok, disconnect_response}
     end
   end
@@ -305,24 +334,28 @@ defmodule KNXnetIP.Frame.Core do
         ip_address: ip,
         port: port
       }
+
       {:ok, hpai}
     end
   end
 
-  defp decode_hpai(frame), do: {:error, {:frame_decode_error, frame, "unsupported host protocol code"}}
+  defp decode_hpai(frame),
+    do: {:error, {:frame_decode_error, frame, "unsupported host protocol code"}}
 
   defp decode_ip_and_port(<<ip1, ip2, ip3, ip4, port::16>>) do
     {:ok, {ip1, ip2, ip3, ip4}, port}
   end
 
-  defp decode_ip_and_port(frame), do: {:error, {:frame_decode_error, frame, "could not decode ip and port"}}
+  defp decode_ip_and_port(frame),
+    do: {:error, {:frame_decode_error, frame, "could not decode ip and port"}}
 
   defp decode_connection_request_information(<<@tunnel_connection, data::binary>>) do
     with {:ok, connection_data} <- Tunnelling.decode_connection_request_data(data) do
       cri = %ConnectionRequestInformation{
         connection_type: :tunnel_connection,
-        connection_data: connection_data,
+        connection_data: connection_data
       }
+
       {:ok, cri}
     end
   end
@@ -335,8 +368,9 @@ defmodule KNXnetIP.Frame.Core do
     with {:ok, connection_data} = Tunnelling.decode_connection_response_data(data) do
       crd = %ConnectionResponseDataBlock{
         connection_type: :tunnel_connection,
-        connection_data: connection_data,
+        connection_data: connection_data
       }
+
       {:ok, crd}
     end
   end
