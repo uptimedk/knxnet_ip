@@ -23,9 +23,10 @@ defmodule KNXnetIP.Datapoint do
   def decode(<<number::8>>, <<"5.", _::binary>>), do: {:ok, number}
 
   def decode(<<a::1, b::1, c::1, d::1, e::1, f::3>>, "6.020")
-      when (f === 0 or f === 2 or f === 4) do
+      when f === 0 or f === 2 or f === 4 do
     {:ok, {a, b, c, d, e, f}}
   end
+
   def decode(<<number::8-integer-signed>>, <<"6.", _::binary>>), do: {:ok, number}
 
   def decode(<<number::16>>, <<"7.", _::binary>>), do: {:ok, number}
@@ -37,22 +38,19 @@ defmodule KNXnetIP.Datapoint do
 
   def decode(<<sign::1, exponent::4, mantissa::11>>, <<"9.", _::binary>>) do
     <<decoded_mantissa::12-integer-signed>> = <<sign::1, mantissa::11>>
-    decoded = (0.01 * decoded_mantissa) * :math.pow(2, exponent)
+    decoded = 0.01 * decoded_mantissa * :math.pow(2, exponent)
     {:ok, decoded}
   end
 
   def decode(<<day::3, hour::5, _::2, minutes::6, _::2, seconds::6>>, <<"10.", _::binary>>)
-      when is_integer_between(day, 0, 7) and
-      is_integer_between(hour, 0, 23) and
-      is_integer_between(minutes, 0, 59) and
-      is_integer_between(seconds, 0, 59) do
+      when is_integer_between(day, 0, 7) and is_integer_between(hour, 0, 23) and
+             is_integer_between(minutes, 0, 59) and is_integer_between(seconds, 0, 59) do
     {:ok, {day, hour, minutes, seconds}}
   end
 
   def decode(<<0::3, day::5, 0::4, month::4, 0::1, year::7>>, <<"11.", _::binary>>)
-      when is_integer_between(day, 1, 31) and
-      is_integer_between(month, 1, 12) and
-      is_integer_between(year, 0, 99) do
+      when is_integer_between(day, 1, 31) and is_integer_between(month, 1, 12) and
+             is_integer_between(year, 0, 99) do
     century = if year >= 90, do: 1900, else: 2000
     {:ok, {day, month, century + year}}
   end
@@ -65,9 +63,12 @@ defmodule KNXnetIP.Datapoint do
   def decode(<<0::6>>, <<"14.", _::binary>>), do: {:ok, 0}
   def decode(<<number::32-float>>, <<"14.", _::binary>>), do: {:ok, number}
 
-  def decode(<<d6::4, d5::4, d4::4, d3::4, d2::4, d1::4, e::1, p::1, d::1, c::1, index::4>>, <<"15.", _::binary>>)
-      when is_digit(d6) and is_digit(d5) and is_digit(d4) and
-      is_digit(d3) and is_digit(d2) and is_digit(d1) do
+  def decode(
+        <<d6::4, d5::4, d4::4, d3::4, d2::4, d1::4, e::1, p::1, d::1, c::1, index::4>>,
+        <<"15.", _::binary>>
+      )
+      when is_digit(d6) and is_digit(d5) and is_digit(d4) and is_digit(d3) and is_digit(d2) and
+             is_digit(d1) do
     {:ok, {d6, d5, d4, d3, d2, d1, e, p, d, c, index}}
   end
 
@@ -75,17 +76,25 @@ defmodule KNXnetIP.Datapoint do
 
   def decode(characters, "16.000") when byte_size(characters) == 14 do
     case ascii?(characters) do
-      true -> {:ok, String.trim_trailing(characters, <<0>>)}
-      _ -> {:error, {:datapoint_encode_error, characters, "16.000", "must only contain ASCII characters"}}
+      true ->
+        {:ok, String.trim_trailing(characters, <<0>>)}
+
+      _ ->
+        {:error,
+         {:datapoint_encode_error, characters, "16.000", "must only contain ASCII characters"}}
     end
   end
 
   def decode(characters, "16.001") when byte_size(characters) == 14 do
     case :unicode.characters_to_binary(characters, :latin1, :utf8) do
       {:error, _as_utf8, _rest} ->
-        {:error, {:datapoint_encode_error, characters, "16.001", "could not convert characters to utf8"}}
+        {:error,
+         {:datapoint_encode_error, characters, "16.001", "could not convert characters to utf8"}}
+
       {:incomplete, _as_utf8, _rest} ->
-        {:error, {:datapoint_encode_error, characters, "16.001", "could not convert characters to utf8"}}
+        {:error,
+         {:datapoint_encode_error, characters, "16.001", "could not convert characters to utf8"}}
+
       as_utf8 ->
         {:ok, String.trim_trailing(as_utf8, <<0>>)}
     end
@@ -98,7 +107,8 @@ defmodule KNXnetIP.Datapoint do
   def decode(<<enum::8>>, <<"20.", _::binary>>), do: {:ok, enum}
 
   def decode(value, datapoint_type) do
-    {:error, {:datapoint_decode_error, value, datapoint_type, "no match found for given datapoint type"}}
+    {:error,
+     {:datapoint_decode_error, value, datapoint_type, "no match found for given datapoint type"}}
   end
 
   def encode(false, <<"1.", _::binary>>), do: {:ok, <<0::5, 0::1>>}
@@ -131,11 +141,11 @@ defmodule KNXnetIP.Datapoint do
 
   # credo:disable-for-next-line
   def encode({a, b, c, d, e, f}, "6.020")
-      when is_bit(a) and is_bit(b) and
-      is_bit(c) and is_bit(d) and is_bit(e) and
-      (f === 0 or f === 2 or f === 4) do
+      when is_bit(a) and is_bit(b) and is_bit(c) and is_bit(d) and is_bit(e) and
+             (f === 0 or f === 2 or f === 4) do
     {:ok, <<a::1, b::1, c::1, d::1, e::1, f::3>>}
   end
+
   def encode(number, <<"6.", _::binary>>)
       when is_integer_between(number, -128, 127) do
     {:ok, <<number::8-integer-signed>>}
@@ -159,18 +169,15 @@ defmodule KNXnetIP.Datapoint do
 
   # credo:disable-for-next-line
   def encode({day, hour, minutes, seconds}, <<"10.", _::binary>>)
-      when is_integer_between(day, 0, 7) and
-      is_integer_between(hour, 0, 23) and
-      is_integer_between(minutes, 0, 59) and
-      is_integer_between(seconds, 0, 59) do
+      when is_integer_between(day, 0, 7) and is_integer_between(hour, 0, 23) and
+             is_integer_between(minutes, 0, 59) and is_integer_between(seconds, 0, 59) do
     {:ok, <<day::3, hour::5, 0::2, minutes::6, 0::2, seconds::6>>}
   end
 
   # credo:disable-for-next-line
   def encode({day, month, year}, <<"11.", _::binary>>)
-      when is_integer_between(day, 1, 31) and
-      is_integer_between(month, 1, 12) and
-      is_integer_between(year, 1990, 2089) do
+      when is_integer_between(day, 1, 31) and is_integer_between(month, 1, 12) and
+             is_integer_between(year, 1990, 2089) do
     century = if year < 2000, do: 1900, else: 2000
     year = year - century
     {:ok, <<0::3, day::5, 0::4, month::4, 0::1, year::7>>}
@@ -193,32 +200,36 @@ defmodule KNXnetIP.Datapoint do
 
   # credo:disable-for-next-line
   def encode({d6, d5, d4, d3, d2, d1, e, p, d, c, index}, <<"15.", _::binary>>)
-      when is_digit(d6) and is_digit(d5) and is_digit(d4) and
-      is_digit(d3) and is_digit(d2) and is_digit(d1) and
-      is_bit(p) and is_bit(d) and is_bit(c) and
-      is_integer_between(index, 0, 15) do
+      when is_digit(d6) and is_digit(d5) and is_digit(d4) and is_digit(d3) and is_digit(d2) and
+             is_digit(d1) and is_bit(p) and is_bit(d) and is_bit(c) and
+             is_integer_between(index, 0, 15) do
     {:ok, <<d6::4, d5::4, d4::4, d3::4, d2::4, d1::4, e::1, p::1, d::1, c::1, index::4>>}
   end
 
   def encode(characters, "16.000")
-      when is_binary(characters) and
-      byte_size(characters) <= 14 do
+      when is_binary(characters) and byte_size(characters) <= 14 do
     case ascii?(characters) do
       true ->
         null_bits = (14 - byte_size(characters)) * 8
         {:ok, <<characters::binary, 0::size(null_bits)>>}
-      _ -> {:error, {:datapoint_encode_error, characters, "16.000", "must only contain ASCII characters"}}
+
+      _ ->
+        {:error,
+         {:datapoint_encode_error, characters, "16.000", "must only contain ASCII characters"}}
     end
   end
 
   def encode(characters, "16.001")
-      when is_binary(characters) and
-      byte_size(characters) <= 28 do
+      when is_binary(characters) and byte_size(characters) <= 28 do
     case :unicode.characters_to_binary(characters, :utf8, :latin1) do
       {:error, _as_latin1, _rest} ->
-        {:error, {:datapoint_encode_error, characters, "16.001", "could not convert characters to latin1"}}
+        {:error,
+         {:datapoint_encode_error, characters, "16.001", "could not convert characters to latin1"}}
+
       {:incomplete, _as_latin1, _rest} ->
-        {:error, {:datapoint_encode_error, characters, "16.001", "could not convert characters to latin1"}}
+        {:error,
+         {:datapoint_encode_error, characters, "16.001", "could not convert characters to latin1"}}
+
       as_latin1 ->
         null_bits = (14 - byte_size(as_latin1)) * 8
         {:ok, <<as_latin1::binary, 0::size(null_bits)>>}
@@ -226,8 +237,7 @@ defmodule KNXnetIP.Datapoint do
   end
 
   def encode({c, scene_number}, <<"18.", _::binary>>)
-      when is_bit(c) and
-      is_integer_between(scene_number, 0, 63) do
+      when is_bit(c) and is_integer_between(scene_number, 0, 63) do
     {:ok, <<c::1, 0::1, scene_number::6>>}
   end
 
@@ -237,15 +247,18 @@ defmodule KNXnetIP.Datapoint do
   end
 
   def encode(value, datapoint_type) do
-    {:error, {:datapoint_encode_error, value, datapoint_type, "no match found for given datapoint type"}}
+    {:error,
+     {:datapoint_encode_error, value, datapoint_type, "no match found for given datapoint type"}}
   end
 
   defp encode_16bit_float(_number, exponent)
-      when exponent < 0 or exponent > 15 do
+       when exponent < 0 or exponent > 15 do
     <<0x7F, 0xFF>>
   end
+
   defp encode_16bit_float(number, exponent) do
     mantissa = trunc(number / :math.pow(2, exponent))
+
     if mantissa >= -2048 and mantissa < 2047 do
       <<sign::1, coded_mantissa::11>> = <<mantissa::12-integer-signed>>
       <<sign::1, exponent::4, coded_mantissa::11>>
@@ -257,7 +270,7 @@ defmodule KNXnetIP.Datapoint do
   defp ascii?(bytes) do
     bytes
     |> String.to_charlist()
-    |> Enum.any?(fn(c) -> c > 127 end)
+    |> Enum.any?(fn c -> c > 127 end)
     |> Kernel.not()
   end
 end
