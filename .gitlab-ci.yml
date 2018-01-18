@@ -10,6 +10,7 @@ test:
   script:
     - mix local.hex --force
     - mix deps.get
+    - mix credo
     - mix test --exclude not_implemented
   cache:
     paths:
