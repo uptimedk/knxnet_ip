@@ -22,10 +22,10 @@ defmodule KNXnetIP.Telegram do
   def constant(_), do: nil
 
   defstruct type: nil,
-    source: "",
-    destination: "",
-    service: nil,
-    value: <<>>
+            source: "",
+            destination: "",
+            service: nil,
+            value: <<>>
 
   def decode(<<message_code::8, rest::binary>>) do
     with {:ok, type} <- decode_message_code(message_code),
@@ -39,6 +39,7 @@ defmodule KNXnetIP.Telegram do
         service: service,
         value: value
       }
+
       {:ok, telegram}
     end
   end
@@ -54,6 +55,7 @@ defmodule KNXnetIP.Telegram do
 
   defp skip_additional_info(<<additional_info_length::8, data::binary>> = rest) do
     offset = 8 * additional_info_length
+
     try do
       <<_additional_info::size(offset), lpdu::binary>> = data
       {:ok, lpdu}
@@ -62,13 +64,16 @@ defmodule KNXnetIP.Telegram do
     end
   end
 
-  defp decode_addresses(<<_ctrl::16, source::16-bitstring, destination::16-bitstring, _length::8, tpdu::binary>>) do
+  defp decode_addresses(
+         <<_ctrl::16, source::16-bitstring, destination::16-bitstring, _length::8, tpdu::binary>>
+       ) do
     source = decode_individual_address(source)
     destination = decode_group_address(destination)
     {:ok, source, destination, tpdu}
   end
 
-  defp decode_addresses(lpdu), do: {:error, {:telegram_decode_error, lpdu, "invalid format of LPDU"}}
+  defp decode_addresses(lpdu),
+    do: {:error, {:telegram_decode_error, lpdu, "invalid format of LPDU"}}
 
   defp decode_tpdu(<<_tpci::6, application_control_field::4, value::6-bitstring>>) do
     decode_tpdu(application_control_field, value)
@@ -82,8 +87,12 @@ defmodule KNXnetIP.Telegram do
 
   defp decode_tpdu(application_control_field, value) do
     case constant(application_control_field) do
-      nil -> {:error, {:telegram_decode_error, application_control_field, "unsupported application service"}}
-      service -> {:ok, service, value}
+      nil ->
+        {:error,
+         {:telegram_decode_error, application_control_field, "unsupported application service"}}
+
+      service ->
+        {:ok, service, value}
     end
   end
 
@@ -102,14 +111,18 @@ defmodule KNXnetIP.Telegram do
          {:ok, application_control_field} <- encode_service(msg.service),
          {:ok, tpdu} <- encode_tpdu(application_control_field, msg.value) do
       data_length = byte_size(tpdu) - 1
+
       telegram = <<
-        message_code, 0x00,
-        0xBC, 0xE0,
+        message_code::8,
+        0x00,
+        0xBC,
+        0xE0,
         source::binary,
         destination::binary,
         data_length::8,
         tpdu::binary
       >>
+
       {:ok, telegram}
     end
   end
@@ -136,18 +149,23 @@ defmodule KNXnetIP.Telegram do
   end
 
   defp encode_group_address(address) do
-    parts = address
+    parts =
+      address
       |> String.split("/")
       |> Enum.map(&String.to_integer/1)
 
     case parts do
       [main_group, subgroup] ->
         {:ok, <<main_group::5, subgroup::11>>}
+
       [main_group, middle_group, subgroup] ->
         {:ok, <<main_group::5, middle_group::3, subgroup::8>>}
+
       [free] ->
         {:ok, <<free::16>>}
-      _ -> {:error, {:telegram_encode_error, address, "invalid group address"}}
+
+      _ ->
+        {:error, {:telegram_encode_error, address, "invalid group address"}}
     end
   end
 
@@ -159,12 +177,12 @@ defmodule KNXnetIP.Telegram do
   end
 
   defp encode_tpdu(application_control_field, value)
-      when bit_size(value) == 6 do
+       when bit_size(value) == 6 do
     {:ok, <<0x00::6, application_control_field::4, value::bitstring>>}
   end
 
   defp encode_tpdu(application_control_field, value)
-      when byte_size(value) <= 253 do
+       when byte_size(value) <= 253 do
     {:ok, <<0x00::6, application_control_field::4, 0x00::6, value::binary>>}
   end
 
