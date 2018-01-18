@@ -10,19 +10,19 @@ defmodule KNXnetIP.Telegram do
   @group_response 0x01
   @group_write 0x02
 
-  def constant(@indication), do: :indication
-  def constant(:indication), do: @indication
-  def constant(@confirmation), do: :confirmation
-  def constant(:confirmation), do: @confirmation
-  def constant(@request), do: :request
-  def constant(:request), do: @request
-  def constant(@group_read), do: :group_read
-  def constant(:group_read), do: @group_read
-  def constant(@group_write), do: :group_write
-  def constant(:group_write), do: @group_write
-  def constant(@group_response), do: :group_response
-  def constant(:group_response), do: @group_response
-  def constant(_), do: nil
+  defp constant(@indication), do: :indication
+  defp constant(:indication), do: @indication
+  defp constant(@confirmation), do: :confirmation
+  defp constant(:confirmation), do: @confirmation
+  defp constant(@request), do: :request
+  defp constant(:request), do: @request
+  defp constant(@group_read), do: :group_read
+  defp constant(:group_read), do: @group_read
+  defp constant(@group_write), do: :group_write
+  defp constant(:group_write), do: @group_write
+  defp constant(@group_response), do: :group_response
+  defp constant(:group_response), do: @group_response
+  defp constant(_), do: nil
 
   defstruct type: nil,
             source: "",
@@ -49,7 +49,7 @@ defmodule KNXnetIP.Telegram do
 
   def decode(telegram), do: {:error, {:telegram_decode_error, telegram, "invalid telegram frame"}}
 
-  def decode_message_code(message_code) do
+  defp decode_message_code(message_code) do
     case constant(message_code) do
       nil -> {:error, {:telegram_decode_error, message_code, "unsupported message code"}}
       type -> {:ok, type}
@@ -107,12 +107,12 @@ defmodule KNXnetIP.Telegram do
     "#{area}.#{line}.#{bus_device}"
   end
 
-  def encode(%__MODULE__{} = msg) do
-    with {:ok, message_code} <- encode_type(msg.type),
-         {:ok, source} <- encode_individual_address(msg.source),
-         {:ok, destination} <- encode_group_address(msg.destination),
-         {:ok, application_control_field} <- encode_service(msg.service),
-         {:ok, tpdu} <- encode_tpdu(application_control_field, msg.value) do
+  def encode(%__MODULE__{} = telegram) do
+    with {:ok, message_code} <- encode_type(telegram.type),
+         {:ok, source} <- encode_individual_address(telegram.source),
+         {:ok, destination} <- encode_group_address(telegram.destination),
+         {:ok, application_control_field} <- encode_service(telegram.service),
+         {:ok, tpdu} <- encode_tpdu(application_control_field, telegram.value) do
       data_length = byte_size(tpdu) - 1
 
       telegram = <<
@@ -130,7 +130,7 @@ defmodule KNXnetIP.Telegram do
     end
   end
 
-  def encode(msg), do: {:error, {:telegram_encode_error, msg, "msg is not valid telegram"}}
+  def encode(telegram), do: {:error, {:telegram_encode_error, telegram, "invalid telegram"}}
 
   defp encode_type(message_code) do
     case constant(message_code) do
