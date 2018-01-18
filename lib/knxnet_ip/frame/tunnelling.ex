@@ -143,7 +143,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
   def decode_tunnelling_ack(frame),
     do: {:error, {:frame_decode_error, frame, "invalid format of tunnelling ack frame"}}
 
-  def decode_connection_request_data(<<knx_layer, _reserved>>) do
+  def decode_connection_request_data(<<knx_layer, _reserved>> = _connection_data) do
     case Constant.by_value(:knx_layer, knx_layer) do
       nil ->
         {:error, {:frame_decode_error, knx_layer, "unsupported KNX layer"}}

@@ -8,31 +8,31 @@ defmodule KNXnetIP.Tunnel do
   on the standard KNXnet/IP port 3671. The KNXnet/IP client will listen on
   10.20.30.11.
 
-    defmodule MyApp.Tunnel do
-      @behaviour KNXnetIP.Tunnel
+      defmodule MyApp.Tunnel do
+        @behaviour KNXnetIP.Tunnel
 
-      ### Public API ###
+        ### Public API ###
 
-      def start_link() do
-        knxnet_ip_opts = [
-          ip: {10, 20, 30, 11},
-          server_ip: {10, 20, 30, 10},
-          server_control_port: 3671,
-        ]
-        KNXnetIP.Tunnel.start_link(__MODULE__, :initial_state, knxnet_ip_opts, gen_server_opts)
+        def start_link() do
+          knxnet_ip_opts = [
+            ip: {10, 20, 30, 11},
+            server_ip: {10, 20, 30, 10},
+            server_control_port: 3671,
+          ]
+          KNXnetIP.Tunnel.start_link(__MODULE__, :initial_state, knxnet_ip_opts)
+        end
+
+        ### Callbacks ###
+
+        def init(:initial_state) do
+          {:ok, :nil}
+        end
+
+        def on_telegram(%KNXnetIP.Telegram{} = telegram, :nil) do
+          IO.puts("Received telegram: " <> inspect(telegram))
+          {:ok, parent_pid}
+        end
       end
-
-      ### Callbacks ###
-
-      def init(:initial_state) do
-        {:ok, :nil}
-      end
-
-      def on_telegram(%KNXnetIP.Telegram{} = telegram, :nil) do
-        IO.puts("Received telegram: " <> inspect(telegram))
-        {:ok, parent_pid}
-      end
-    end
 
   This will log to the console every time the client receives a telegram from
   the KNXnet/IP gateway.

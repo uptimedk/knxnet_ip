@@ -5,6 +5,8 @@ defmodule KNXnetIP.Datapoint do
 
   import KNXnetIP.Guards
 
+  def decode(value, datapoint_type)
+
   def decode(<<_::5, 0::1>>, <<"1.", _::binary>>), do: {:ok, false}
   def decode(<<_::5, 1::1>>, <<"1.", _::binary>>), do: {:ok, true}
 
@@ -110,6 +112,8 @@ defmodule KNXnetIP.Datapoint do
     {:error,
      {:datapoint_decode_error, value, datapoint_type, "no match found for given datapoint type"}}
   end
+
+  def encode(value, datapoint_type)
 
   def encode(false, <<"1.", _::binary>>), do: {:ok, <<0::5, 0::1>>}
   def encode(true, <<"1.", _::binary>>), do: {:ok, <<0::5, 1::1>>}
