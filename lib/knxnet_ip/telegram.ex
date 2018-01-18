@@ -5,6 +5,7 @@ defmodule KNXnetIP.Telegram do
 
   @indication 0x29
   @confirmation 0x2E
+  @request 0x11
   @group_read 0x00
   @group_response 0x01
   @group_write 0x02
@@ -13,12 +14,14 @@ defmodule KNXnetIP.Telegram do
   def constant(:indication), do: @indication
   def constant(@confirmation), do: :confirmation
   def constant(:confirmation), do: @confirmation
-  def constant(:group_read), do: @group_read
+  def constant(@request), do: :request
+  def constant(:request), do: @request
   def constant(@group_read), do: :group_read
-  def constant(:group_write), do: @group_write
+  def constant(:group_read), do: @group_read
   def constant(@group_write), do: :group_write
-  def constant(:group_response), do: @group_response
+  def constant(:group_write), do: @group_write
   def constant(@group_response), do: :group_response
+  def constant(:group_response), do: @group_response
   def constant(_), do: nil
 
   defstruct type: nil,
