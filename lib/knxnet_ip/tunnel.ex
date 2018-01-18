@@ -46,21 +46,21 @@ defmodule KNXnetIP.Tunnel do
   alias KNXnetIP.Frame.{Core, Tunnelling}
 
   @callback init(args :: term) ::
-    {:ok, state :: any} |
-    {:stop, reason :: any}
+              {:ok, state :: any}
+              | {:stop, reason :: any}
   @callback on_telegram(message :: binary, state :: any) :: {:ok, state :: any}
 
   @defaults ip: {127, 0, 0, 1},
-    control_port: 0,
-    data_port: 0,
-    server_ip: {127, 0, 0, 1},
-    server_control_port: 3671,
-    backoff_timeout: 5_000,
-    heartbeat_timeout: 60_000,
-    connect_response_timeout: 10_000,
-    connectionstate_response_timeout: 10_000,
-    disconnect_response_timeout: 5_000,
-    tunnelling_ack_timeout: 1_000
+            control_port: 0,
+            data_port: 0,
+            server_ip: {127, 0, 0, 1},
+            server_control_port: 3671,
+            backoff_timeout: 5_000,
+            heartbeat_timeout: 60_000,
+            connect_response_timeout: 10_000,
+            connectionstate_response_timeout: 10_000,
+            disconnect_response_timeout: 5_000,
+            tunnelling_ack_timeout: 1_000
 
   ##
   ## Public API
@@ -76,18 +76,21 @@ defmodule KNXnetIP.Tunnel do
     case module.init(module_args) do
       {:ok, mod_state} ->
         do_init(module, mod_state, tunnel_args ++ @defaults)
-      {:stop, _} = stop -> stop
+
+      {:stop, _} = stop ->
+        stop
     end
   end
 
   def connect(:init, state) do
-
     sockets = open_sockets(state.ip, state.control_port, state.data_port)
-    new_state =  %{state |
-      control_socket: sockets.control_socket,
-      control_port: sockets.control_port,
-      data_socket: sockets.data_socket,
-      data_port: sockets.data_port
+
+    new_state = %{
+      state
+      | control_socket: sockets.control_socket,
+        control_port: sockets.control_port,
+        data_socket: sockets.data_socket,
+        data_port: sockets.data_port
     }
 
     do_connect(new_state)
@@ -113,8 +116,10 @@ defmodule KNXnetIP.Tunnel do
     case info do
       {:error, :connect_response_error} ->
         {:backoff, state.backoff_timeout, state}
+
       {:error, _} ->
         {:connect, :reconnect, state}
+
       _ ->
         :ok = :gen_udp.close(state.control_socket)
         :ok = :gen_udp.close(state.data_socket)
@@ -124,6 +129,7 @@ defmodule KNXnetIP.Tunnel do
 
   def handle_info({:timeout, name, ref}, state) do
     timer = Map.get(state, name)
+
     case timer.ref == ref do
       true -> handle_timeout(name, state)
       false -> {:noreply, state}
@@ -132,12 +138,17 @@ defmodule KNXnetIP.Tunnel do
 
   def handle_info({:udp, socket, _ip, _port, data}, state) do
     :inet.setopts(socket, active: 1)
+
     case Frame.decode(data) do
       {:ok, msg} ->
-        Logger.debug(fn () -> "#{inspect(state.server_ip)} received frame: #{inspect(msg)}" end)
+        Logger.debug(fn -> "#{inspect(state.server_ip)} received frame: #{inspect(msg)}" end)
         on_message(msg, state)
+
       {:error, error} ->
-        Logger.warn(fn () -> "#{inspect(state.server_ip)} error decoding #{inspect(data)}: #{inspect(error)}" end)
+        Logger.warn(fn ->
+          "#{inspect(state.server_ip)} error decoding #{inspect(data)}: #{inspect(error)}"
+        end)
+
         {:noreply, state}
     end
   end
@@ -155,7 +166,10 @@ defmodule KNXnetIP.Tunnel do
     {:noreply, state}
   end
 
-  def on_message(%{communication_channel_id: remote_id} = msg, %{communication_channel_id: local_id} = state)
+  def on_message(
+        %{communication_channel_id: remote_id} = msg,
+        %{communication_channel_id: local_id} = state
+      )
       when remote_id == local_id and local_id != nil do
     handle_message(msg, state)
   end
@@ -168,7 +182,10 @@ defmodule KNXnetIP.Tunnel do
     handle_message(msg, state)
   end
 
-  def on_message(%{communication_channel_id: remote_id}, %{communication_channel_id: local_id} = state)
+  def on_message(
+        %{communication_channel_id: remote_id},
+        %{communication_channel_id: local_id} = state
+      )
       when remote_id != local_id or local_id == nil do
     {:noreply, state}
   end
@@ -180,12 +197,15 @@ defmodule KNXnetIP.Tunnel do
     :inet.setopts(state.data_socket, active: 10)
     connect_response_timer = stop_timer(state.connect_response_timer)
     heartbeat_timer = start_timer(:heartbeat_timer, state)
-    new_state = %{state |
-      connect_response_timer: connect_response_timer,
-      heartbeat_timer: heartbeat_timer,
-      communication_channel_id: msg.communication_channel_id,
-      server_data_port: msg.data_endpoint.port,
+
+    new_state = %{
+      state
+      | connect_response_timer: connect_response_timer,
+        heartbeat_timer: heartbeat_timer,
+        communication_channel_id: msg.communication_channel_id,
+        server_data_port: msg.data_endpoint.port
     }
+
     {:noreply, new_state}
   end
 
@@ -198,31 +218,36 @@ defmodule KNXnetIP.Tunnel do
   defp handle_message(%Core.ConnectionstateResponse{} = msg, state) do
     timer = stop_timer(state.connectionstate_response_timer)
     state = %{state | connectionstate_response_timer: timer}
+
     case connectionstate_result(msg, state) do
       :ok ->
         heartbeat_timer = start_timer(:heartbeat_timer, state)
-        new_state = %{state |
-          connectionstate_attempts: 0,
-          heartbeat_timer: heartbeat_timer,
-        }
+        new_state = %{state | connectionstate_attempts: 0, heartbeat_timer: heartbeat_timer}
         {:noreply, new_state}
-      :retry -> do_connectionstate_request(state)
-      :disconnect -> do_disconnect({:error, :no_heartbeat}, state)
+
+      :retry ->
+        do_connectionstate_request(state)
+
+      :disconnect ->
+        do_disconnect({:error, :no_heartbeat}, state)
     end
   end
 
   defp handle_message(%Core.DisconnectRequest{}, state) do
     state = stop_all_timers(state)
+
     :ok =
       state
       |> disconnect_response()
       |> send_control(state)
 
-    state = %{state |
-      communication_channel_id: nil,
-      remote_sequence_counter: 0,
-      local_sequence_counter: 0,
+    state = %{
+      state
+      | communication_channel_id: nil,
+        remote_sequence_counter: 0,
+        local_sequence_counter: 0
     }
+
     {:disconnect, {:error, :disconnect_requested}, state}
   end
 
@@ -236,23 +261,27 @@ defmodule KNXnetIP.Tunnel do
       0 ->
         {:ok, mod_state} = handle_telegram(msg, :on_telegram, state)
         remote_sequence_counter = increment_sequence_counter(msg.sequence_counter)
-        new_state = %{state |
-          mod_state: mod_state,
-          remote_sequence_counter: remote_sequence_counter,
+
+        new_state = %{
+          state
+          | mod_state: mod_state,
+            remote_sequence_counter: remote_sequence_counter
         }
+
         do_ack(msg, new_state)
-      -1 -> do_ack(msg, state)
-      _ -> {:noreply, state}
+
+      -1 ->
+        do_ack(msg, state)
+
+      _ ->
+        {:noreply, state}
     end
   end
 
   defp handle_message(%Tunnelling.TunnellingAck{} = msg, state) do
     if tunnelling_ack_result(msg, state) == :ok do
       timer = stop_timer(state.tunnelling_ack_timer)
-      state = %{state |
-        tunnelling_ack_timer: timer,
-        tunnelling_request: nil,
-      }
+      state = %{state | tunnelling_ack_timer: timer, tunnelling_request: nil}
       {:noreply, state}
     else
       {:noreply, state}
@@ -260,7 +289,10 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp connectionstate_result(%Core.ConnectionstateResponse{status: :e_no_error}, _state), do: :ok
-  defp connectionstate_result(_, %{connectionstate_attempts: attempts}) when attempts >= 3, do: :disconnect
+
+  defp connectionstate_result(_, %{connectionstate_attempts: attempts}) when attempts >= 3,
+    do: :disconnect
+
   defp connectionstate_result(_, _state), do: :retry
 
   defp tunnelling_ack_result(%Tunnelling.TunnellingAck{status: :e_no_error} = msg, state) do
@@ -294,7 +326,7 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp handle_timeout(:tunnelling_ack_timer, %{tunnelling_attempts: attempts} = state)
-      when attempts <= 1 do
+       when attempts <= 1 do
     :ok = send_data(state.tunnelling_request, state)
     {:noreply, %{state | tunnelling_attempts: state.tunnelling_attempts + 1}}
   end
@@ -323,12 +355,14 @@ defmodule KNXnetIP.Tunnel do
     connectionstate_response_timer = stop_timer(state.connectionstate_response_timer)
     disconnect_response_timer = stop_timer(state.disconnect_response_timer)
     tunnelling_ack_timer = stop_timer(state.tunnelling_ack_timer)
-    %{state |
-      connect_response_timer: connect_response_timer,
-      heartbeat_timer: heartbeat_timer,
-      connectionstate_response_timer: connectionstate_response_timer,
-      disconnect_response_timer: disconnect_response_timer,
-      tunnelling_ack_timer: tunnelling_ack_timer,
+
+    %{
+      state
+      | connect_response_timer: connect_response_timer,
+        heartbeat_timer: heartbeat_timer,
+        connectionstate_response_timer: connectionstate_response_timer,
+        disconnect_response_timer: disconnect_response_timer,
+        tunnelling_ack_timer: tunnelling_ack_timer
     }
   end
 
@@ -359,8 +393,9 @@ defmodule KNXnetIP.Tunnel do
       connect_response_timer: new_timer(tunnel_args[:connect_response_timeout]),
       connectionstate_response_timer: new_timer(tunnel_args[:connectionstate_response_timeout]),
       disconnect_response_timer: new_timer(tunnel_args[:disconnect_response_timeout]),
-      tunnelling_ack_timer: new_timer(tunnel_args[:tunnelling_ack_timeout]),
+      tunnelling_ack_timer: new_timer(tunnel_args[:tunnelling_ack_timeout])
     }
+
     {:connect, :init, state}
   end
 
@@ -389,6 +424,7 @@ defmodule KNXnetIP.Tunnel do
       state
       |> connect_request()
       |> send_control(state)
+
     timer = start_timer(:connect_response_timer, state)
     {:ok, %{state | connect_response_timer: timer}}
   end
@@ -398,11 +434,15 @@ defmodule KNXnetIP.Tunnel do
       state
       |> connectionstate_request()
       |> send_control(state)
+
     timer = start_timer(:connectionstate_response_timer, state)
-    state = %{state |
-      connectionstate_response_timer: timer,
-      connectionstate_attempts: state.connectionstate_attempts + 1,
+
+    state = %{
+      state
+      | connectionstate_response_timer: timer,
+        connectionstate_attempts: state.connectionstate_attempts + 1
     }
+
     {:noreply, state}
   end
 
@@ -416,12 +456,14 @@ defmodule KNXnetIP.Tunnel do
       |> send_control(state)
 
     timer = start_timer(:disconnect_response_timer, state)
-    state = %{state |
-      disconnect_response_timer: timer,
-      communication_channel_id: nil,
-      disconnect_info: reason,
-      remote_sequence_counter: 0,
-      local_sequence_counter: 0,
+
+    state = %{
+      state
+      | disconnect_response_timer: timer,
+        communication_channel_id: nil,
+        disconnect_info: reason,
+        remote_sequence_counter: 0,
+        local_sequence_counter: 0
     }
 
     {:noreply, state}
@@ -434,24 +476,24 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp send_control(msg, state) do
-    Logger.debug(fn () -> "#{inspect(state.server_ip)} sending #{inspect(msg)}" end)
+    Logger.debug(fn -> "#{inspect(state.server_ip)} sending #{inspect(msg)}" end)
     {:ok, frame} = Frame.encode(msg)
     :gen_udp.send(state.control_socket, state.server_ip, state.server_control_port, frame)
-    Logger.debug(fn () -> "#{inspect(state.server_ip)} sent #{inspect(frame)}" end)
+    Logger.debug(fn -> "#{inspect(state.server_ip)} sent #{inspect(frame)}" end)
   end
 
   defp send_data(msg, state) do
-    Logger.debug(fn () -> "#{inspect(state.server_ip)} sending #{inspect(msg)}" end)
+    Logger.debug(fn -> "#{inspect(state.server_ip)} sending #{inspect(msg)}" end)
     {:ok, frame} = Frame.encode(msg)
     :gen_udp.send(state.data_socket, state.server_ip, state.server_data_port, frame)
-    Logger.debug(fn () -> "#{inspect(state.server_ip)} sent #{inspect(frame)}" end)
+    Logger.debug(fn -> "#{inspect(state.server_ip)} sent #{inspect(frame)}" end)
   end
 
   defp new_timer(timeout) do
     %{
       ref: nil,
       timer: nil,
-      timeout: timeout,
+      timeout: timeout
     }
   end
 
@@ -483,7 +525,7 @@ defmodule KNXnetIP.Tunnel do
       control_endpoint: %Core.HostProtocolAddressInformation{
         ip_address: state.ip,
         port: state.control_port
-      },
+      }
     }
   end
 
@@ -493,7 +535,7 @@ defmodule KNXnetIP.Tunnel do
       control_endpoint: %Core.HostProtocolAddressInformation{
         ip_address: state.ip,
         port: state.control_port
-      },
+      }
     }
   end
 
@@ -508,15 +550,20 @@ defmodule KNXnetIP.Tunnel do
     %Tunnelling.TunnellingAck{
       communication_channel_id: state.communication_channel_id,
       sequence_counter: request.sequence_counter,
-      status: :e_no_error,
+      status: :e_no_error
     }
   end
 
   defp handle_telegram(msg, function, state) do
     case Telegram.decode(msg.telegram) do
-      {:ok, telegram} -> apply(state.mod, function, [telegram, state.mod_state])
+      {:ok, telegram} ->
+        apply(state.mod, function, [telegram, state.mod_state])
+
       {:error, error} ->
-        Logger.warn(fn () -> "#{inspect(state.server_ip)} error decoding #{inspect(msg.telegram)}: #{inspect(error)}" end)
+        Logger.warn(fn ->
+          "#{inspect(state.server_ip)} error decoding #{inspect(msg.telegram)}: #{inspect(error)}"
+        end)
+
         {:ok, state.mod_state}
     end
   end
