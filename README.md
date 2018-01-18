@@ -1,4 +1,4 @@
-# KNXnetIP
+# KNXnetIP [![pipeline status](https://gitlab.uptime.dk/troels/knxnet_ip/badges/master/pipeline.svg)](https://gitlab.uptime.dk/troels/knxnet_ip/commits/master) [![coverage report](https://gitlab.uptime.dk/troels/knxnet_ip/badges/master/coverage.svg)](https://gitlab.uptime.dk/troels/knxnet_ip/commits/master)
 
 KNXnetIP is an Elixir library for communicating with devices on a KNX network using KNXnet/IP. The library provides a set of functions for encoding and decoding KNX and KNXnet/IP frames, as well as encoding and decoding datapoints when given a datapoint type. It also packs KNXnetIP.Tunnel, a behaviour module for connecting to a KNX IP interface, and for sending and receiving KNX frames to and from the KNX network.
 
