@@ -17,7 +17,7 @@ defmodule KNXnetIP.TelegramTest do
         0x29, 0x00, # Message code, additional info length
         0xBC, 0xE0, # ctrl1, ctrl2
         0x01::4, 0x01::4, 0x01::8, # Source (SAH, SAL)
-        0x00::4, 0x00::4, 0x03::8, # Destination (DAH, DAL)
+        0x00::5, 0x00::3, 0x03::8, # Destination (DAH, DAL)
         0x03::8, # octet count (TPDU length - 1)
         0x00::6, 0x02::4, 0x00::6, # TPCI, APCI (application control field), APCI/data
         0x1917::16, # data
@@ -40,7 +40,7 @@ defmodule KNXnetIP.TelegramTest do
         0x29, 0x00, # Message code, additional info length
         0xBC, 0xE0, # ctrl1, ctrl2
         0x01::4, 0x00::4, 0x03::8, # Source (SAH, SAL)
-        0x00::4, 0x00::4, 0x03::8, # Destination (DAH, DAL)
+        0x00::5, 0x00::3, 0x03::8, # Destination (DAH, DAL)
         0x01::8, # octet count (TPDU length - 1)
         0x00::6, 0x00::4, 0x00::6, # TPCI, application control field, APCI/data
       >>
@@ -62,7 +62,7 @@ defmodule KNXnetIP.TelegramTest do
         0x29, 0x00,
         0xBC, 0xE0,
         0x01::4, 0x01::4, 0x04::8,
-        0x00::4, 0x00::4, 0x02::8,
+        0x00::5, 0x00::3, 0x02::8,
         0x05::8,
         0x00::6, 0x01::4, 0x00::6,
         0x41, 0x46, 0x8F, 0x5C,
@@ -90,6 +90,31 @@ defmodule KNXnetIP.TelegramTest do
         0, 7,
         0x01,
         0, 0
+      >>
+
+      assert {:ok, decoded} == Telegram.decode(encoded)
+      assert {:ok, encoded} == Telegram.encode(decoded)
+    end
+  end
+
+  describe "L_Data.req" do
+    test "decode/encode A_GroupValue_Write with 5 byte octet count" do
+      decoded = %KNXnetIP.Telegram{
+        destination: "4/4/21",
+        service: :group_write,
+        source: "1.1.5",
+        type: :request,
+        value: <<66, 105, 34, 209>>
+      }
+
+      encoded = <<
+        0x11, 0x00,
+        0xBC, 0xE0,
+        0x01::4, 0x01::4, 0x05::8,
+        0x04::5, 0x04::3, 0x15::8,
+        0x05,
+        0x00::6, 0x02::4, 0x00::6,
+        0x42, 0x69, 0x22, 0xD1
       >>
 
       assert {:ok, decoded} == Telegram.decode(encoded)

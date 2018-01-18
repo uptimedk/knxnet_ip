@@ -49,7 +49,7 @@ In order to fulfill the requirements of a KNXnet/IP tunnelling client, the libra
 - Telegrams
   - [x] L_Data.ind
   - [x] L_Data.con
-  - [ ] L_Data.req
+  - [x] L_Data.req
 - Application services:
   - [x] A_GroupValue_Read
   - [x] A_GroupValue_Response
