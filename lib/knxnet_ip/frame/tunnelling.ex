@@ -16,15 +16,15 @@ defmodule KNXnetIP.Frame.Tunnelling do
   defmodule TunnellingRequest do
     @moduledoc false
     defstruct communication_channel_id: nil,
-      sequence_counter: nil,
-      telegram: <<>>
+              sequence_counter: nil,
+              telegram: <<>>
   end
 
   defmodule TunnellingAck do
     @moduledoc false
     defstruct communication_channel_id: nil,
-      sequence_counter: nil,
-      status: nil
+              sequence_counter: nil,
+              status: nil
   end
 
   def encode_tunnelling_request(%{telegram: telegram})
@@ -48,20 +48,18 @@ defmodule KNXnetIP.Frame.Tunnelling do
   end
 
   defp encode_communication_channel_id(id)
-      when not is_integer_between(id, 0, 255) do
+       when not is_integer_between(id, 0, 255) do
     {:error, {:frame_encode_error, id, "invalid communication channel id"}}
   end
 
-  defp encode_communication_channel_id(id),
-    do: {:ok, <<id>>}
+  defp encode_communication_channel_id(id), do: {:ok, <<id>>}
 
   defp encode_sequence_counter(counter)
-      when not is_integer_between(counter, 0, 255) do
+       when not is_integer_between(counter, 0, 255) do
     {:error, {:frame_encode_error, counter, "invalid sequence counter"}}
   end
 
-  defp encode_sequence_counter(counter),
-    do: {:ok, <<counter>>}
+  defp encode_sequence_counter(counter), do: {:ok, <<counter>>}
 
   defp encode_tunnelling_ack_status(status) do
     case Constant.by_name(:status, status) do
@@ -77,7 +75,9 @@ defmodule KNXnetIP.Frame.Tunnelling do
   end
 
   def encode_connection_request_data(connection_data),
-    do: {:error, {:frame_encode_error, connection_data, "invalid format of connection request data"}}
+    do:
+      {:error,
+       {:frame_encode_error, connection_data, "invalid format of connection request data"}}
 
   defp encode_knx_layer(knx_layer) do
     case Constant.by_name(:knx_layer, knx_layer) do
@@ -95,7 +95,9 @@ defmodule KNXnetIP.Frame.Tunnelling do
   end
 
   def encode_connection_response_data(connection_data),
-    do: {:error, {:frame_encode_error, connection_data, "invalid format of connection response data"}}
+    do:
+      {:error,
+       {:frame_encode_error, connection_data, "invalid format of connection response data"}}
 
   defp split_individual_address(address) do
     address
@@ -104,34 +106,37 @@ defmodule KNXnetIP.Frame.Tunnelling do
     |> Enum.map(&String.to_integer/1)
   end
 
-  def decode_tunnelling_request(
-      <<
-        _length, communication_channel_id,
-        sequence_counter, _,
+  def decode_tunnelling_request(<<
+        _length,
+        communication_channel_id,
+        sequence_counter,
+        _,
         telegram::binary
       >>) do
-
     tunnelling_request = %TunnellingRequest{
       communication_channel_id: communication_channel_id,
       sequence_counter: sequence_counter,
       telegram: telegram
     }
+
     {:ok, tunnelling_request}
   end
 
   def decode_tunnelling_request(frame),
     do: {:error, {:frame_decode_error, frame, "invalid format of tunnelling request frame"}}
 
-  def decode_tunnelling_ack(
-      <<
-        _length, communication_channel_id,
-        sequence_counter, status
+  def decode_tunnelling_ack(<<
+        _length,
+        communication_channel_id,
+        sequence_counter,
+        status
       >>) do
     tunnelling_ack = %TunnellingAck{
       communication_channel_id: communication_channel_id,
       sequence_counter: sequence_counter,
       status: Constant.by_value(:status, status)
     }
+
     {:ok, tunnelling_ack}
   end
 
@@ -140,7 +145,9 @@ defmodule KNXnetIP.Frame.Tunnelling do
 
   def decode_connection_request_data(<<knx_layer::8, _::8>>) do
     case Constant.by_value(:knx_layer, knx_layer) do
-      nil -> {:error, {:frame_decode_error, knx_layer, "unsupported KNX layer"}}
+      nil ->
+        {:error, {:frame_decode_error, knx_layer, "unsupported KNX layer"}}
+
       layer ->
         {:ok, %{knx_layer: layer}}
     end
