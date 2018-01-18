@@ -110,7 +110,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
         _length,
         communication_channel_id,
         sequence_counter,
-        _,
+        _reserved,
         telegram::binary
       >>) do
     tunnelling_request = %TunnellingRequest{
@@ -143,7 +143,7 @@ defmodule KNXnetIP.Frame.Tunnelling do
   def decode_tunnelling_ack(frame),
     do: {:error, {:frame_decode_error, frame, "invalid format of tunnelling ack frame"}}
 
-  def decode_connection_request_data(<<knx_layer::8, _::8>>) do
+  def decode_connection_request_data(<<knx_layer, _reserved>>) do
     case Constant.by_value(:knx_layer, knx_layer) do
       nil ->
         {:error, {:frame_decode_error, knx_layer, "unsupported KNX layer"}}
