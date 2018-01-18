@@ -27,7 +27,7 @@ defmodule KNXnetIP.Telegram do
             service: nil,
             value: <<>>
 
-  def decode(<<message_code::8, rest::binary>>) do
+  def decode(<<message_code, rest::binary>>) do
     with {:ok, type} <- decode_message_code(message_code),
          {:ok, lpdu} <- skip_additional_info(rest),
          {:ok, source, destination, tpdu} <- decode_addresses(lpdu),
@@ -53,7 +53,7 @@ defmodule KNXnetIP.Telegram do
     end
   end
 
-  defp skip_additional_info(<<additional_info_length::8, data::binary>> = rest) do
+  defp skip_additional_info(<<additional_info_length, data::binary>> = rest) do
     offset = 8 * additional_info_length
 
     try do
@@ -65,7 +65,7 @@ defmodule KNXnetIP.Telegram do
   end
 
   defp decode_addresses(
-         <<_ctrl::16, source::16-bitstring, destination::16-bitstring, _length::8, tpdu::binary>>
+         <<_ctrl::16, source::16-bitstring, destination::16-bitstring, _length, tpdu::binary>>
        ) do
     source = decode_individual_address(source)
     destination = decode_group_address(destination)
@@ -96,11 +96,11 @@ defmodule KNXnetIP.Telegram do
     end
   end
 
-  defp decode_group_address(<<main_group::5, middle_group::3, subgroup::8>>) do
+  defp decode_group_address(<<main_group::5, middle_group::3, subgroup>>) do
     "#{main_group}/#{middle_group}/#{subgroup}"
   end
 
-  defp decode_individual_address(<<area::4, line::4, bus_device::8>>) do
+  defp decode_individual_address(<<area::4, line::4, bus_device>>) do
     "#{area}.#{line}.#{bus_device}"
   end
 
@@ -113,13 +113,13 @@ defmodule KNXnetIP.Telegram do
       data_length = byte_size(tpdu) - 1
 
       telegram = <<
-        message_code::8,
+        message_code,
         0x00,
         0xBC,
         0xE0,
         source::binary,
         destination::binary,
-        data_length::8,
+        data_length,
         tpdu::binary
       >>
 
@@ -143,7 +143,7 @@ defmodule KNXnetIP.Telegram do
       |> Enum.map(&String.to_integer/1)
 
     case encoded_address do
-      [area, line, bus_device] -> {:ok, <<area::4, line::4, bus_device::8>>}
+      [area, line, bus_device] -> {:ok, <<area::4, line::4, bus_device>>}
       _ -> {:error, {:telegram_encode_error, address, "invalid individual address"}}
     end
   end
@@ -159,7 +159,7 @@ defmodule KNXnetIP.Telegram do
         {:ok, <<main_group::5, subgroup::11>>}
 
       [main_group, middle_group, subgroup] ->
-        {:ok, <<main_group::5, middle_group::3, subgroup::8>>}
+        {:ok, <<main_group::5, middle_group::3, subgroup>>}
 
       [free] ->
         {:ok, <<free::16>>}

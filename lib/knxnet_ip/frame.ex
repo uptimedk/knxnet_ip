@@ -112,8 +112,8 @@ defmodule KNXnetIP.Frame do
 
   defp encode_header(service_type, body_length) do
     <<
-      @header_size_10::8,
-      @knxnetip_version_10::8,
+      @header_size_10,
+      @knxnetip_version_10,
       service_type::16,
       @header_size_10 + body_length::16
     >>
