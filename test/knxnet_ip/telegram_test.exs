@@ -197,5 +197,27 @@ defmodule KNXnetIP.TelegramTest do
       assert {:ok, decoded} == Telegram.decode(encoded)
       assert {:ok, encoded} == Telegram.encode(decoded)
     end
+
+    test "decode/encode A_GroupValue_Read" do
+      decoded = %KNXnetIP.Telegram{
+        destination: "4/4/21",
+        service: :group_read,
+        source: "1.1.5",
+        type: :request,
+        value: <<0::6>>
+      }
+
+      encoded = <<
+        0x11, 0x00,
+        0xBC, 0xE0,
+        0x01::4, 0x01::4, 0x05::8,
+        0x04::5, 0x04::3, 0x15::8,
+        0x01,
+        0x00::6, 0x00::4, 0x00::6,
+      >>
+
+      assert {:ok, decoded} == Telegram.decode(encoded)
+      assert {:ok, encoded} == Telegram.encode(decoded)
+    end
   end
 end

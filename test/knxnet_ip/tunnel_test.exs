@@ -2,7 +2,7 @@ defmodule KNXnetIP.TunnelTest do
   use ExUnit.Case, async: true
 
   alias KNXnetIP.Frame.{Core, Tunnelling}
-  alias KNXnetIP.Tunnel
+  alias KNXnetIP.{Telegram, Tunnel}
 
   defmodule Noop do
     @behaviour KNXnetIP.Tunnel
@@ -13,6 +13,23 @@ defmodule KNXnetIP.TunnelTest do
     def on_telegram(_msg, state) do
       assert :test_state = state
       {:ok, state}
+    end
+  end
+
+  describe "send/2" do
+    @tag :not_implemented
+    test "returns a reference" do
+      telegram = %Telegram{
+        destination: "4/4/21",
+        service: :group_write,
+        source: "1.1.5",
+        type: :request,
+        value: <<66, 105, 34, 209>>
+      }
+
+      {:ok, ref} = Tunnel.send(telegram)
+
+      assert is_reference(ref)
     end
   end
 
@@ -115,6 +132,15 @@ defmodule KNXnetIP.TunnelTest do
       state = %{connect_response_timer: %{timer: make_ref(), ref: make_ref()}}
       timeout = {:timeout, :connect_response_timer, make_ref()}
       assert {:noreply, _state} = Tunnel.handle_info(timeout, state)
+    end
+  end
+
+  describe "handle_cast/2" do
+    setup [:server_sockets, :init, :connect]
+
+    @tag :not_implemented
+    test "if not :send, invokes handle_cast of callback module" do
+      assert false
     end
   end
 
@@ -354,6 +380,18 @@ defmodule KNXnetIP.TunnelTest do
 
       assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
       assert state.disconnect_info == {:error, :no_tunnelling_ack}
+    end
+  end
+
+  describe "handle_timeout/2 tunnelling request" do
+    @tag :not_implemented
+    test "sends new tunnelling request when less than 3 attempts" do
+      assert false
+    end
+
+    @tag :not_implemented
+    test "invokes on_ack_error callback when 3 attempts have failed" do
+      assert false
     end
   end
 
@@ -717,19 +755,106 @@ defmodule KNXnetIP.TunnelTest do
   end
 
   describe "on_message/2 tunnelling ack" do
+    setup [:server_sockets, :init, :connect]
+
     @tag :not_implemented
-    test "if ok stops timer" do
+    test "stops tunnelling_ack_timer when status :e_no_error" do
       assert false
     end
 
     @tag :not_implemented
-    test "if ok removes tunnelling request from state" do
+    test "removes tunnelling request from state when status :e_no_error" do
       assert false
     end
 
     @tag :not_implemented
-    test "if not ok or not expected, does nothing" do
+    test "invokes on_ack callback when status :e_no_error" do
       assert false
+    end
+
+    @tag :not_implemented
+    test "discard invalid acks" do
+      assert false
+    end
+
+    @tag :not_implemented
+    test "disconnects if too many invalid acks are received" do
+      assert false
+    end
+
+    @tag :not_implemented
+    test "sends new tunnelling request when less than 3 attempts", context do
+      assert false
+      ref = make_ref()
+      sequence_counter = 10
+      tunnelling_request = tunnelling_request(sequence_counter)
+      tunnelling_ack = tunnelling_ack(sequence_counter, :e_sequence_number)
+
+      states =
+        Enum.map(0..2, fn attempts ->
+          %{
+            context.state
+            | requests_in_flight: %{sequence_counter => {tunnelling_request, ref, attempts}}
+          }
+        end)
+
+      Enum.each(states, fn state ->
+        {:noreply, state} = Tunnel.on_message(tunnelling_ack, state)
+        assert is_reference(state.connectionstate_response_timer.ref)
+
+        assert state.connectionstate_response_timer.ref !=
+                 context.state.connectionstate_response_timer.ref
+      end)
+    end
+
+    @tag :not_implemented
+    test "invokes on_ack_error callback when 3 attempts have failed" do
+      assert false
+    end
+  end
+
+  describe "do_send/2" do
+    setup [:server_sockets, :init, :connect]
+
+    @tag :not_implemented
+    @tag :group_write
+    test "sends a tunnelling_request on data socket", context do
+      telegram = %Telegram{
+        destination: "4/4/21",
+        service: :group_read,
+        source: "1.1.5",
+        type: :request,
+        value: <<0::6>>
+      }
+
+      {:noreply, state} = Tunnel.do_send(telegram, context.state)
+
+      assert {:ok, {_, _, tunnelling_request_frame}} =
+               :gen_udp.recv(context.data_socket, 0, 1_000)
+
+      assert {:ok, %Tunnelling.TunnellingRequest{}} =
+               KNXnetIP.Frame.decode(tunnelling_request_frame)
+    end
+
+    @tag :not_implemented
+    test "adds tunnelling request to state", context do
+      sequence_counter = 0
+      attempts = 0
+      ref = make_ref()
+      {:ok, state} = Tunnel.send_message(tunnelling_request(sequence_counter), ref, context.state)
+
+      assert map_size(state.requests_in_flight) == 1
+
+      assert %{sequence_counter => {tunnelling_request, ref, attempts}} ==
+               state.requests_in_flight
+    end
+
+    @tag :not_implemented
+    test "starts tunnelling_ack_timer", context do
+      {:ok, state} = Tunnel.send_message(tunnelling_request(), make_ref(), context.state)
+
+      assert is_reference(state.tunnelling_ack_timer.timer)
+      assert is_reference(state.tunnelling_ack_timer.ref)
     end
   end
 
@@ -809,11 +934,11 @@ defmodule KNXnetIP.TunnelTest do
     }
   end
 
-  defp tunnelling_ack(sequence_counter \\ 1) do
+  defp tunnelling_ack(sequence_counter \\ 1, status \\ :e_no_error) do
     %Tunnelling.TunnellingAck{
       communication_channel_id: 10,
       sequence_counter: sequence_counter,
-      status: :e_no_error
+      status: status
     }
   end
 end
