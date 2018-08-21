@@ -9,6 +9,8 @@ defmodule KNXnetIP.Datapoint do
 
   def decode(<<_::5, 0::1>>, <<"1.", _::binary>>), do: {:ok, false}
   def decode(<<_::5, 1::1>>, <<"1.", _::binary>>), do: {:ok, true}
+  def decode(<<_::7, 0::1>>, <<"1.", _::binary>>), do: {:ok, false}
+  def decode(<<_::7, 1::1>>, <<"1.", _::binary>>), do: {:ok, true}
 
   def decode(<<_::4, c::1, v::1>>, <<"2.", _::binary>>), do: {:ok, {c, v}}
 
