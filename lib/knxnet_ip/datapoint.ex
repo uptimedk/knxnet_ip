@@ -36,9 +36,11 @@ defmodule KNXnetIP.Datapoint do
   def decode(<<number::16>>, <<"7.", _::binary>>), do: {:ok, number}
 
   def decode(<<0::6>>, <<"8.", _::binary>>), do: {:ok, 0}
+  def decode(<<0::8>>, <<"8.", _::binary>>), do: {:ok, 0}
   def decode(<<number::16-integer-signed>>, <<"8.", _::binary>>), do: {:ok, number}
 
   def decode(<<0::6>>, <<"9.", _::binary>>), do: {:ok, 0}
+  def decode(<<0::8>>, <<"9.", _::binary>>), do: {:ok, 0}
 
   def decode(<<sign::1, exponent::4, mantissa::11>>, <<"9.", _::binary>>) do
     <<decoded_mantissa::12-integer-signed>> = <<sign::1, mantissa::11>>
@@ -62,9 +64,11 @@ defmodule KNXnetIP.Datapoint do
   def decode(<<number::32>>, <<"12.", _::binary>>), do: {:ok, number}
 
   def decode(<<0::6>>, <<"13.", _::binary>>), do: {:ok, 0}
+  def decode(<<0::8>>, <<"13.", _::binary>>), do: {:ok, 0}
   def decode(<<number::32-integer-signed>>, <<"13.", _::binary>>), do: {:ok, number}
 
   def decode(<<0::6>>, <<"14.", _::binary>>), do: {:ok, 0}
+  def decode(<<0::8>>, <<"14.", _::binary>>), do: {:ok, 0}
   def decode(<<number::32-float>>, <<"14.", _::binary>>), do: {:ok, number}
 
   def decode(
@@ -77,6 +81,7 @@ defmodule KNXnetIP.Datapoint do
   end
 
   def decode(<<0::6>>, <<"16.", _::binary>>), do: {:ok, ""}
+  def decode(<<0::8>>, <<"16.", _::binary>>), do: {:ok, ""}
 
   def decode(characters, "16.000") when byte_size(characters) == 14 do
     case ascii?(characters) do
