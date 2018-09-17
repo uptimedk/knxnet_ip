@@ -173,7 +173,7 @@ defmodule KNXnetIP.Datapoint do
   end
 
   def encode(number, <<"9.", _::binary>>)
-      when is_integer_between(number, -671_088.64, 670_760.96) do
+      when is_float_between(number, -671_088.64, 670_760.96) do
     encoded = encode_16bit_float(number * 100, 0)
     {:ok, encoded}
   end
