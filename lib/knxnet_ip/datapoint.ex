@@ -61,6 +61,8 @@ defmodule KNXnetIP.Datapoint do
     {:ok, {day, month, century + year}}
   end
 
+  def decode(<<0::6>>, <<"12.", _::binary>>), do: {:ok, 0}
+  def decode(<<0::8>>, <<"12.", _::binary>>), do: {:ok, 0}
   def decode(<<number::32>>, <<"12.", _::binary>>), do: {:ok, number}
 
   def decode(<<0::6>>, <<"13.", _::binary>>), do: {:ok, 0}
