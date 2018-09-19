@@ -129,7 +129,7 @@ defmodule KNXnetIP.DatapointTest do
 
   describe "9.*" do
     test "decode/encode negative numbers" do
-      decoded = -30
+      decoded = -30.0
       encoded = <<138, 36>>
 
       assert {:ok, encoded} == Datapoint.encode(decoded, "9.*")
@@ -137,7 +137,7 @@ defmodule KNXnetIP.DatapointTest do
     end
 
     test "decode/encode positive numbers" do
-      decoded = 30
+      decoded = 30.0
       encoded = <<13, 220>>
 
       assert {:ok, encoded} == Datapoint.encode(decoded, "9.*")
@@ -201,8 +201,8 @@ defmodule KNXnetIP.DatapointTest do
     end
 
     test "decode/encode positive numbers" do
-      decoded = 439504
-      encoded = <<0::1, 439504::31>>
+      decoded = 439_504
+      encoded = <<0::1, 439_504::31>>
 
       assert {:ok, encoded} == Datapoint.encode(decoded, "13.*")
       assert {:ok, decoded} == Datapoint.decode(encoded, "13.*")
@@ -212,7 +212,7 @@ defmodule KNXnetIP.DatapointTest do
   describe "14.*" do
     test "decode/encode" do
       decoded = 8493.34375
-      encoded = <<0x4604b560::32>>
+      encoded = <<0x4604B560::32>>
 
       assert {:ok, encoded} == Datapoint.encode(decoded, "14.*")
       assert {:ok, decoded} == Datapoint.decode(encoded, "14.*")
@@ -232,7 +232,9 @@ defmodule KNXnetIP.DatapointTest do
   describe "16.000" do
     test "decode/encode" do
       decoded = "KNX is OK"
-      encoded = <<0x4B, 0x4E, 0x58, 0x20, 0x69, 0x73, 0x20, 0x4F, 0x4B, 0x00, 0x00, 0x00, 0x00, 0x00>>
+
+      encoded =
+        <<0x4B, 0x4E, 0x58, 0x20, 0x69, 0x73, 0x20, 0x4F, 0x4B, 0x00, 0x00, 0x00, 0x00, 0x00>>
 
       assert {:ok, encoded} == Datapoint.encode(decoded, "16.000")
       assert {:ok, decoded} == Datapoint.decode(encoded, "16.000")
@@ -242,7 +244,9 @@ defmodule KNXnetIP.DatapointTest do
   describe "16.001" do
     test "decode/encode" do
       decoded = "KNX is ÅK"
-      encoded = <<0x4B, 0x4E, 0x58, 0x20, 0x69, 0x73, 0x20, 0xC5, 0x4B, 0x00, 0x00, 0x00, 0x00, 0x00>>
+
+      encoded =
+        <<0x4B, 0x4E, 0x58, 0x20, 0x69, 0x73, 0x20, 0xC5, 0x4B, 0x00, 0x00, 0x00, 0x00, 0x00>>
 
       assert {:ok, encoded} == Datapoint.encode(decoded, "16.001")
       assert {:ok, decoded} == Datapoint.decode(encoded, "16.001")

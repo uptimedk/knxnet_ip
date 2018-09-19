@@ -6,4 +6,7 @@ defmodule KNXnetIP.Guards do
 
   defguard is_integer_between(value, min, max)
            when is_integer(value) and value >= min and value <= max
+
+  defguard is_float_between(value, min, max)
+           when is_float(value) and value >= min and value <= max
 end
