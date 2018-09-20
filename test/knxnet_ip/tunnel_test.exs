@@ -1,7 +1,7 @@
 defmodule KNXnetIP.TunnelTest do
   use ExUnit.Case, async: true
 
-  alias KNXnetIP.Frame.{Core,Tunnelling}
+  alias KNXnetIP.Frame.{Core, Tunnelling}
   alias KNXnetIP.Tunnel
 
   defmodule Noop do
@@ -17,7 +17,6 @@ defmodule KNXnetIP.TunnelTest do
   end
 
   describe "init/1" do
-
     @tag :init
     test "if mod.init/1 sucess will return connect tuple" do
       assert {:connect, :init, _state} = Tunnel.init({Noop, [], []})
@@ -66,19 +65,23 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :disconnect
     test "returns connect tuple on error", context do
-      assert {:connect, :reconnect, _state} = Tunnel.disconnect({:error, :expected}, context.state)
+      assert {:connect, :reconnect, _state} =
+               Tunnel.disconnect({:error, :expected}, context.state)
     end
 
     @tag :disconnect
     test "stops all timers", context do
       ref = make_ref()
-      state = %{context.state |
-        heartbeat_timer: %{timer: ref, ref: ref},
-        connectionstate_response_timer: %{timer: ref, ref: ref},
-        connect_response_timer: %{timer: ref, ref: ref},
-        disconnect_response_timer: %{timer: ref, ref: ref},
-        tunnelling_ack_timer: %{timer: ref, ref: ref},
+
+      state = %{
+        context.state
+        | heartbeat_timer: %{timer: ref, ref: ref},
+          connectionstate_response_timer: %{timer: ref, ref: ref},
+          connect_response_timer: %{timer: ref, ref: ref},
+          disconnect_response_timer: %{timer: ref, ref: ref},
+          tunnelling_ack_timer: %{timer: ref, ref: ref}
       }
+
       {:stop, :normal, state} = Tunnel.disconnect({:stop, :normal}, state)
 
       refute is_reference(state.heartbeat_timer.timer)
@@ -116,7 +119,6 @@ defmodule KNXnetIP.TunnelTest do
   end
 
   describe "handle_timeout/2 connect response" do
-
     @tag :connect_response_timeout
     test "returns connect tuple for reconnect" do
       ref = make_ref()
@@ -141,8 +143,12 @@ defmodule KNXnetIP.TunnelTest do
     test "sends a connectionstate request", context do
       timeout = {:timeout, :heartbeat_timer, context.state.heartbeat_timer.ref}
       {:noreply, _state} = Tunnel.handle_info(timeout, context.state)
-      assert {:ok, {_, _, connectionstate_request_frame}} = :gen_udp.recv(context.control_socket, 0, 1_000)
-      assert {:ok, %Core.ConnectionstateRequest{}} = KNXnetIP.Frame.decode(connectionstate_request_frame)
+
+      assert {:ok, {_, _, connectionstate_request_frame}} =
+               :gen_udp.recv(context.control_socket, 0, 1_000)
+
+      assert {:ok, %Core.ConnectionstateRequest{}} =
+               KNXnetIP.Frame.decode(connectionstate_request_frame)
     end
 
     @tag :heartbeat_timeout
@@ -157,11 +163,14 @@ defmodule KNXnetIP.TunnelTest do
     setup [:server_sockets, :init, :connect]
 
     @tag :connectionstate_response_timeout
-    test "increments connectionstate attempts counter on connectionstate response timeout", context do
+    test "increments connectionstate attempts counter on connectionstate response timeout",
+         context do
       ref = make_ref()
       timeout = {:timeout, :connectionstate_response_timer, ref}
-      state = %{context.state |
-        connectionstate_response_timer: %{timer: ref, ref: ref, timeout: 10_000}
+
+      state = %{
+        context.state
+        | connectionstate_response_timer: %{timer: ref, ref: ref, timeout: 10_000}
       }
 
       {:noreply, state} = Tunnel.handle_info(timeout, state)
@@ -173,17 +182,23 @@ defmodule KNXnetIP.TunnelTest do
       ref = make_ref()
       timeout = {:timeout, :connectionstate_response_timer, ref}
 
-      states = Enum.map(0..2, fn (attempts) ->
-        %{context.state |
-          connectionstate_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
-          connectionstate_attempts: attempts,
-        }
-      end)
+      states =
+        Enum.map(0..2, fn attempts ->
+          %{
+            context.state
+            | connectionstate_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
+              connectionstate_attempts: attempts
+          }
+        end)
 
-      Enum.each(states, fn (state) ->
+      Enum.each(states, fn state ->
         {:noreply, _state} = Tunnel.handle_info(timeout, state)
-        assert {:ok, {_, _, connectionstate_request_frame}} = :gen_udp.recv(context.control_socket, 0, 1_000)
-        assert {:ok, %Core.ConnectionstateRequest{}} = KNXnetIP.Frame.decode(connectionstate_request_frame)
+
+        assert {:ok, {_, _, connectionstate_request_frame}} =
+                 :gen_udp.recv(context.control_socket, 0, 1_000)
+
+        assert {:ok, %Core.ConnectionstateRequest{}} =
+                 KNXnetIP.Frame.decode(connectionstate_request_frame)
       end)
     end
 
@@ -192,14 +207,16 @@ defmodule KNXnetIP.TunnelTest do
       ref = make_ref()
       timeout = {:timeout, :connectionstate_response_timer, ref}
 
-      states = Enum.map(0..2, fn (attempts) ->
-        %{context.state |
-          connectionstate_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
-          connectionstate_attempts: attempts,
-        }
-      end)
+      states =
+        Enum.map(0..2, fn attempts ->
+          %{
+            context.state
+            | connectionstate_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
+              connectionstate_attempts: attempts
+          }
+        end)
 
-      Enum.each(states, fn (state) ->
+      Enum.each(states, fn state ->
         {:noreply, state} = Tunnel.handle_info(timeout, state)
         assert is_reference(state.connectionstate_response_timer.ref)
         assert state.connectionstate_response_timer.ref != ref
@@ -210,23 +227,31 @@ defmodule KNXnetIP.TunnelTest do
     test "sends disconnect request when 3 connectionstate attempts", context do
       ref = make_ref()
       timeout = {:timeout, :connectionstate_response_timer, ref}
-      state = %{context.state |
-        connectionstate_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
-        connectionstate_attempts: 3,
+
+      state = %{
+        context.state
+        | connectionstate_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
+          connectionstate_attempts: 3
       }
 
       {:noreply, _state} = Tunnel.handle_info(timeout, state)
-      assert {:ok, {_, _, disconnect_request_frame}} = :gen_udp.recv(context.control_socket, 0, 1_000)
+
+      assert {:ok, {_, _, disconnect_request_frame}} =
+               :gen_udp.recv(context.control_socket, 0, 1_000)
+
       assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
     end
 
     @tag :connectionstate_response_timeout
-    test "sets communication_channel_id and disconnect info when 3 connectionstate attempts", context do
+    test "sets communication_channel_id and disconnect info when 3 connectionstate attempts",
+         context do
       ref = make_ref()
       timeout = {:timeout, :connectionstate_response_timer, ref}
-      state = %{context.state |
-        connectionstate_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
-        connectionstate_attempts: 3,
+
+      state = %{
+        context.state
+        | connectionstate_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
+          connectionstate_attempts: 3
       }
 
       {:noreply, state} = Tunnel.handle_info(timeout, state)
@@ -242,12 +267,15 @@ defmodule KNXnetIP.TunnelTest do
     test "returns a disconnect tuple", context do
       ref = make_ref()
       timeout = {:timeout, :disconnect_response_timer, ref}
-      state = %{context.state |
-        disconnect_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
-        disconnect_info: {:error, :disconnect_response_timeout}
+
+      state = %{
+        context.state
+        | disconnect_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
+          disconnect_info: {:error, :disconnect_response_timeout}
       }
 
-      assert {:disconnect, {:error, :disconnect_response_timeout}, _state} = Tunnel.handle_info(timeout, state)
+      assert {:disconnect, {:error, :disconnect_response_timeout}, _state} =
+               Tunnel.handle_info(timeout, state)
     end
   end
 
@@ -259,16 +287,19 @@ defmodule KNXnetIP.TunnelTest do
       ref = make_ref()
       timeout = {:timeout, :tunnelling_ack_timer, ref}
       {:ok, data_port} = :inet.port(context.data_socket)
-      states = Enum.map(0..1, fn (attempts) ->
-        %{context.state |
-          server_data_port: data_port,
-          tunnelling_ack_timer: %{timer: ref, ref: ref, timeout: 10_000},
-          tunnelling_request: tunnelling_request(),
-          tunnelling_attempts: attempts,
-        }
-      end)
 
-      Enum.each(states, fn (state) ->
+      states =
+        Enum.map(0..1, fn attempts ->
+          %{
+            context.state
+            | server_data_port: data_port,
+              tunnelling_ack_timer: %{timer: ref, ref: ref, timeout: 10_000},
+              tunnelling_request: tunnelling_request(),
+              tunnelling_attempts: attempts
+          }
+        end)
+
+      Enum.each(states, fn state ->
         {:noreply, new_state} = Tunnel.handle_info(timeout, state)
         assert new_state.tunnelling_attempts == state.tunnelling_attempts + 1
       end)
@@ -279,19 +310,26 @@ defmodule KNXnetIP.TunnelTest do
       ref = make_ref()
       timeout = {:timeout, :tunnelling_ack_timer, ref}
       {:ok, data_port} = :inet.port(context.data_socket)
-      states = Enum.map(0..1, fn (attempts) ->
-        %{context.state |
-          server_data_port: data_port,
-          tunnelling_ack_timer: %{timer: ref, ref: ref, timeout: 10_000},
-          tunnelling_request: tunnelling_request(),
-          tunnelling_attempts: attempts,
-        }
-      end)
 
-      Enum.each(states, fn (state) ->
+      states =
+        Enum.map(0..1, fn attempts ->
+          %{
+            context.state
+            | server_data_port: data_port,
+              tunnelling_ack_timer: %{timer: ref, ref: ref, timeout: 10_000},
+              tunnelling_request: tunnelling_request(),
+              tunnelling_attempts: attempts
+          }
+        end)
+
+      Enum.each(states, fn state ->
         {:noreply, _state} = Tunnel.handle_info(timeout, state)
-        assert {:ok, {_, _, tunnelling_request_frame}} = :gen_udp.recv(context.data_socket, 0, 1_000)
-        assert {:ok, %Tunnelling.TunnellingRequest{}} = KNXnetIP.Frame.decode(tunnelling_request_frame)
+
+        assert {:ok, {_, _, tunnelling_request_frame}} =
+                 :gen_udp.recv(context.data_socket, 0, 1_000)
+
+        assert {:ok, %Tunnelling.TunnellingRequest{}} =
+                 KNXnetIP.Frame.decode(tunnelling_request_frame)
       end)
     end
 
@@ -300,15 +338,20 @@ defmodule KNXnetIP.TunnelTest do
       ref = make_ref()
       timeout = {:timeout, :tunnelling_ack_timer, ref}
       {:ok, data_port} = :inet.port(context.data_socket)
-      state = %{context.state |
-        server_data_port: data_port,
-        tunnelling_ack_timer: %{timer: ref, ref: ref, timeout: 10_000},
-        tunnelling_request: tunnelling_request(),
-        tunnelling_attempts: 2,
+
+      state = %{
+        context.state
+        | server_data_port: data_port,
+          tunnelling_ack_timer: %{timer: ref, ref: ref, timeout: 10_000},
+          tunnelling_request: tunnelling_request(),
+          tunnelling_attempts: 2
       }
 
       {:noreply, state} = Tunnel.handle_info(timeout, state)
-      assert {:ok, {_, _, disconnect_request_frame}} = :gen_udp.recv(context.control_socket, 0, 1_000)
+
+      assert {:ok, {_, _, disconnect_request_frame}} =
+               :gen_udp.recv(context.control_socket, 0, 1_000)
+
       assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
       assert state.disconnect_info == {:error, :no_tunnelling_ack}
     end
@@ -318,7 +361,8 @@ defmodule KNXnetIP.TunnelTest do
     setup [:server_sockets, :init]
 
     @tag :not_connected
-    test "does not respond to messages other than connect and disconnect response when not connected", context do
+    test "does not respond to messages other than connect and disconnect response when not connected",
+         context do
       connectionstate_response = connectionstate_response()
       disconnect_request = disconnect_request()
       tunnelling_request = tunnelling_request()
@@ -338,10 +382,13 @@ defmodule KNXnetIP.TunnelTest do
     setup [:server_sockets, :init, :connect]
 
     @tag :wrong_communication_channel_id
-    test "does not respond when communication_channel_id in message and state are unequal", context do
-      tunnelling_request = %{tunnelling_request() |
-        communication_channel_id: context.state.communication_channel_id + Enum.random(1..10)
+    test "does not respond when communication_channel_id in message and state are unequal",
+         context do
+      tunnelling_request = %{
+        tunnelling_request()
+        | communication_channel_id: context.state.communication_channel_id + Enum.random(1..10)
       }
+
       {:noreply, _state} = Tunnel.on_message(tunnelling_request, context.state)
 
       assert {:error, :timeout} = :gen_udp.recv(context.control_socket, 0, 100)
@@ -409,7 +456,9 @@ defmodule KNXnetIP.TunnelTest do
       connect_response = connect_response(data_port, :e_host_protocol_type)
 
       {:ok, state} = Tunnel.connect(:init, context.state)
-      assert {:disconnect, {:error, :connect_response_error}, _state} = Tunnel.on_message(connect_response, state)
+
+      assert {:disconnect, {:error, :connect_response_error}, _state} =
+               Tunnel.on_message(connect_response, state)
     end
   end
 
@@ -419,9 +468,7 @@ defmodule KNXnetIP.TunnelTest do
     @tag :connectionstate_response
     test "resets connectionstate attempts counter", context do
       connectionstate_response = connectionstate_response()
-      state = %{context.state |
-        connectionstate_attempts: 2,
-      }
+      state = %{context.state | connectionstate_attempts: 2}
 
       {:noreply, state} = Tunnel.on_message(connectionstate_response, state)
       assert state.connectionstate_attempts == 0
@@ -454,16 +501,19 @@ defmodule KNXnetIP.TunnelTest do
     test "sends new connectionstate request when less than 3 connectionstate attempts", context do
       connectionstate_response = connectionstate_response(:e_host_protocol_type)
 
-      states = Enum.map(0..2, fn (attempts) ->
-        %{context.state |
-          connectionstate_attempts: attempts,
-        }
-      end)
+      states =
+        Enum.map(0..2, fn attempts ->
+          %{context.state | connectionstate_attempts: attempts}
+        end)
 
-      Enum.each(states, fn (state) ->
+      Enum.each(states, fn state ->
         {:noreply, _state} = Tunnel.on_message(connectionstate_response, state)
-        assert {:ok, {_, _, connectionstate_request_frame}} = :gen_udp.recv(context.control_socket, 0, 1_000)
-        assert {:ok, %Core.ConnectionstateRequest{}} = KNXnetIP.Frame.decode(connectionstate_request_frame)
+
+        assert {:ok, {_, _, connectionstate_request_frame}} =
+                 :gen_udp.recv(context.control_socket, 0, 1_000)
+
+        assert {:ok, %Core.ConnectionstateRequest{}} =
+                 KNXnetIP.Frame.decode(connectionstate_request_frame)
       end)
     end
 
@@ -471,37 +521,38 @@ defmodule KNXnetIP.TunnelTest do
     test "starts a new timer when less than 3 connectionstate attempts", context do
       connectionstate_response = connectionstate_response(:e_host_protocol_type)
 
-      states = Enum.map(0..2, fn (attempts) ->
-        %{context.state |
-          connectionstate_attempts: attempts,
-        }
-      end)
+      states =
+        Enum.map(0..2, fn attempts ->
+          %{context.state | connectionstate_attempts: attempts}
+        end)
 
-      Enum.each(states, fn (state) ->
+      Enum.each(states, fn state ->
         {:noreply, state} = Tunnel.on_message(connectionstate_response, state)
         assert is_reference(state.connectionstate_response_timer.ref)
-        assert state.connectionstate_response_timer.ref != context.state.connectionstate_response_timer.ref
+
+        assert state.connectionstate_response_timer.ref !=
+                 context.state.connectionstate_response_timer.ref
       end)
     end
 
     @tag :connectionstate_response
     test "sends disconnect request when 3 connectionstate attempts", context do
       connectionstate_response = connectionstate_response(:e_host_protocol_type)
-      state = %{context.state |
-        connectionstate_attempts: 3,
-      }
+      state = %{context.state | connectionstate_attempts: 3}
 
       {:noreply, _state} = Tunnel.on_message(connectionstate_response, state)
-      assert {:ok, {_, _, disconnect_request_frame}} = :gen_udp.recv(context.control_socket, 0, 1_000)
+
+      assert {:ok, {_, _, disconnect_request_frame}} =
+               :gen_udp.recv(context.control_socket, 0, 1_000)
+
       assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
     end
 
     @tag :connectionstate_response
-    test "sets communication_channel_id and disconnect info when 3 connectionstate attempts", context do
+    test "sets communication_channel_id and disconnect info when 3 connectionstate attempts",
+         context do
       connectionstate_response = connectionstate_response(:e_host_protocol_type)
-      state = %{context.state |
-        connectionstate_attempts: 3,
-      }
+      state = %{context.state | connectionstate_attempts: 3}
 
       {:noreply, state} = Tunnel.on_message(connectionstate_response, state)
       assert state.communication_channel_id == nil
@@ -515,19 +566,24 @@ defmodule KNXnetIP.TunnelTest do
     @tag :disconnect_request
     test "returns disconnect tuple with disconnect requested info", context do
       disconnect_request = disconnect_request()
-      assert {:disconnect, {:error, :disconnect_requested}, _state} = Tunnel.on_message(disconnect_request, context.state)
+
+      assert {:disconnect, {:error, :disconnect_requested}, _state} =
+               Tunnel.on_message(disconnect_request, context.state)
     end
 
     @tag :disconnect_request
     test "stops all timers", context do
       ref = make_ref()
-      state = %{context.state |
-        heartbeat_timer: %{timer: ref, ref: ref},
-        connectionstate_response_timer: %{timer: ref, ref: ref},
-        connect_response_timer: %{timer: ref, ref: ref},
-        disconnect_response_timer: %{timer: ref, ref: ref},
-        tunnelling_ack_timer: %{timer: ref, ref: ref},
+
+      state = %{
+        context.state
+        | heartbeat_timer: %{timer: ref, ref: ref},
+          connectionstate_response_timer: %{timer: ref, ref: ref},
+          connect_response_timer: %{timer: ref, ref: ref},
+          disconnect_response_timer: %{timer: ref, ref: ref},
+          tunnelling_ack_timer: %{timer: ref, ref: ref}
       }
+
       disconnect_request = disconnect_request()
 
       {:disconnect, _, state} = Tunnel.on_message(disconnect_request, state)
@@ -549,7 +605,9 @@ defmodule KNXnetIP.TunnelTest do
       disconnect_request = disconnect_request()
       {:disconnect, _, _state} = Tunnel.on_message(disconnect_request, context.state)
 
-      assert {:ok, {_, _, disconnect_response_frame}} = :gen_udp.recv(context.control_socket, 0, 1_000)
+      assert {:ok, {_, _, disconnect_response_frame}} =
+               :gen_udp.recv(context.control_socket, 0, 1_000)
+
       assert {:ok, %Core.DisconnectResponse{}} = KNXnetIP.Frame.decode(disconnect_response_frame)
     end
 
@@ -575,21 +633,26 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :disconnect_response
     test "returns disconnect tuple with disconnect info from state", context do
-      state = %{context.state |
-        communication_channel_id: nil,
-        disconnect_info: {:error, :testing},
+      state = %{
+        context.state
+        | communication_channel_id: nil,
+          disconnect_info: {:error, :testing}
       }
+
       disconnect_response = disconnect_response()
 
-      assert {:disconnect, {:error, :testing}, _state} = Tunnel.on_message(disconnect_response, state)
+      assert {:disconnect, {:error, :testing}, _state} =
+               Tunnel.on_message(disconnect_response, state)
     end
 
     @tag :disconnect_response
     test "stops disconnect response timer", context do
-      state = %{context.state |
-        communication_channel_id: nil,
-        disconnect_info: {:error, :testing},
+      state = %{
+        context.state
+        | communication_channel_id: nil,
+          disconnect_info: {:error, :testing}
       }
+
       disconnect_response = disconnect_response()
 
       {:disconnect, _, state} = Tunnel.on_message(disconnect_response, state)
@@ -603,7 +666,8 @@ defmodule KNXnetIP.TunnelTest do
     setup [:server_sockets, :init, :connect]
 
     @tag :tunnelling_request
-    test "increments remote sequence conter when tunnelling request is next in sequence", context do
+    test "increments remote sequence conter when tunnelling request is next in sequence",
+         context do
       # TODO: check that it invokes mod
       tunnelling_request = tunnelling_request()
       {:noreply, state} = Tunnel.on_message(tunnelling_request, context.state)
@@ -653,7 +717,6 @@ defmodule KNXnetIP.TunnelTest do
   end
 
   describe "on_message/2 tunnelling ack" do
-
     @tag :not_implemented
     test "if ok stops timer" do
       assert false
@@ -673,9 +736,10 @@ defmodule KNXnetIP.TunnelTest do
   defp server_sockets(_context) do
     {:ok, control_socket} = :gen_udp.open(0, [:binary, active: false])
     {:ok, data_socket} = :gen_udp.open(0, [:binary, active: false])
+
     %{
       control_socket: control_socket,
-      data_socket: data_socket,
+      data_socket: data_socket
     }
   end
 
@@ -702,12 +766,12 @@ defmodule KNXnetIP.TunnelTest do
       status: status,
       data_endpoint: %Core.HostProtocolAddressInformation{
         ip_address: {127, 0, 0, 1},
-        port: data_port,
+        port: data_port
       },
       connection_response_data_block: %Core.ConnectionResponseDataBlock{
         connection_type: :tunnel_connection,
         connection_data: %{
-          knx_individual_address: "1.1.1",
+          knx_individual_address: "1.1.1"
         }
       }
     }
@@ -716,7 +780,7 @@ defmodule KNXnetIP.TunnelTest do
   defp connectionstate_response(status \\ :e_no_error) do
     %Core.ConnectionstateResponse{
       communication_channel_id: 10,
-      status: status,
+      status: status
     }
   end
 
@@ -725,15 +789,15 @@ defmodule KNXnetIP.TunnelTest do
       communication_channel_id: 10,
       control_endpoint: %Core.HostProtocolAddressInformation{
         ip_address: {127, 0, 0, 1},
-        port: 3671,
-      },
+        port: 3671
+      }
     }
   end
 
   defp disconnect_response() do
     %Core.DisconnectResponse{
       communication_channel_id: 10,
-      status: :e_no_error,
+      status: :e_no_error
     }
   end
 
@@ -741,7 +805,7 @@ defmodule KNXnetIP.TunnelTest do
     %Tunnelling.TunnellingRequest{
       communication_channel_id: 10,
       sequence_counter: sequence_counter,
-      telegram: <<41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128,25, 23>>
+      telegram: <<41, 0, 188, 224, 17, 1, 0, 3, 3, 0, 128, 25, 23>>
     }
   end
 
@@ -749,7 +813,7 @@ defmodule KNXnetIP.TunnelTest do
     %Tunnelling.TunnellingAck{
       communication_channel_id: 10,
       sequence_counter: sequence_counter,
-      status: :e_no_error,
+      status: :e_no_error
     }
   end
 end

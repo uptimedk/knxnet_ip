@@ -18,5 +18,4 @@ defmodule KNXnetIP do
   maintaining a KNXnet/IP connection, and invokes the callback module when
   telegrams arrives from the KNX bus.
   """
-
 end
