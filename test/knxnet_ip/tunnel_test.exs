@@ -3,45 +3,21 @@ defmodule KNXnetIP.TunnelTest do
 
   alias KNXnetIP.Frame.{Core, Tunnelling}
   alias KNXnetIP.{Telegram, Tunnel}
-
-  defmodule Noop do
-    @behaviour KNXnetIP.Tunnel
-
-    def init(nil), do: {:stop, {:error, :expected}}
-    def init(_), do: {:ok, :test_state}
-
-    def on_telegram(_msg, state) do
-      assert :test_state = state
-      {:ok, state}
-    end
-  end
-
-  describe "send/2" do
-    @tag :not_implemented
-    test "returns a reference" do
-      telegram = %Telegram{
-        destination: "4/4/21",
-        service: :group_write,
-        source: "1.1.5",
-        type: :request,
-        value: <<66, 105, 34, 209>>
-      }
-
-      {:ok, ref} = Tunnel.send(telegram)
-
-      assert is_reference(ref)
-    end
-  end
+  alias KNXnetIP.Support.TunnelMock
 
   describe "init/1" do
     @tag :init
     test "if mod.init/1 sucess will return connect tuple" do
-      assert {:connect, :init, _state} = Tunnel.init({Noop, [], []})
+      Mox.expect(TunnelMock, :init, fn [] -> {:ok, :test_state} end)
+
+      assert {:connect, :init, %{mod_state: :test_state}} = Tunnel.init({TunnelMock, [], []})
     end
 
     @tag :init
     test "if mod.init/1 fails it will return stop" do
-      assert {:stop, {:error, :expected}} = Tunnel.init({Noop, nil, []})
+      Mox.expect(TunnelMock, :init, fn nil -> {:stop, {:error, :expected}} end)
+
+      assert {:stop, {:error, :expected}} = Tunnel.init({TunnelMock, nil, []})
     end
   end
 
@@ -138,9 +114,11 @@ defmodule KNXnetIP.TunnelTest do
   describe "handle_cast/2" do
     setup [:server_sockets, :init, :connect]
 
-    @tag :not_implemented
-    test "if not :send, invokes handle_cast of callback module" do
-      assert false
+    test "invokes handle_cast of callback module", context do
+      Mox.expect(TunnelMock, :handle_cast, fn msg, state -> {:noreply, :handle_cast_invoked} end)
+
+      assert {:noreply, %{mod_state: :handle_cast_invoked}} =
+               Tunnel.handle_cast(nil, context.state)
     end
   end
 
@@ -869,8 +847,10 @@ defmodule KNXnetIP.TunnelTest do
   end
 
   defp init(context) do
+    Mox.expect(TunnelMock, :init, fn [] -> {:ok, :test_state} end)
+
     {:ok, control_port} = :inet.port(context.control_socket)
-    {:connect, :init, state} = Tunnel.init({Noop, [], [server_control_port: control_port]})
+    {:connect, :init, state} = Tunnel.init({TunnelMock, [], [server_control_port: control_port]})
     %{state: state}
   end
 

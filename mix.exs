@@ -42,9 +42,10 @@ defmodule KNXnetIP.Mixfile do
     [
       {:connection, "~> 1.0"},
       {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
-      {:excoveralls, "~> 0.8", only: :test},
       {:ex_doc, "~> 0.18", only: :dev, runtime: false},
-      {:stream_data, "~> 0.4.2"}
+      {:excoveralls, "~> 0.8", only: :test},
+      {:stream_data, "~> 0.4.2", only: :test},
+      {:mox, "~> 0.4.0", only: :test}
     ]
   end
 
