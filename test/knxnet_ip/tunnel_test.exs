@@ -363,12 +363,20 @@ defmodule KNXnetIP.TunnelTest do
 
   describe "handle_timeout/2 tunnelling request" do
     @tag :not_implemented
-    test "sends new tunnelling request when less than 3 attempts" do
+    @tag :group_write
+    test "repeats tunnelling request on first timeout" do
       assert false
     end
 
     @tag :not_implemented
-    test "invokes on_ack_error callback when 3 attempts have failed" do
+    @tag :group_write
+    test "repeats tunnelling request and disconnects on second timeout" do
+      assert false
+    end
+
+    @tag :not_implemented
+    @tag :group_write
+    test "invokes transmit_ack callback with timeout status on second timeout" do
       assert false
     end
   end
@@ -744,68 +752,123 @@ defmodule KNXnetIP.TunnelTest do
   describe "on_message/2 tunnelling ack" do
     setup [:server_sockets, :init, :connect]
 
-    @tag :not_implemented
-    test "stops tunnelling_ack_timer when status :e_no_error" do
-      assert false
-    end
-
-    @tag :not_implemented
-    test "removes tunnelling request from state when status :e_no_error" do
-      assert false
-    end
-
-    @tag :not_implemented
-    test "invokes on_ack callback when status :e_no_error" do
-      assert false
-    end
-
-    @tag :not_implemented
-    test "discard invalid acks" do
-      assert false
-    end
-
-    @tag :not_implemented
-    test "disconnects if too many invalid acks are received" do
-      assert false
-    end
-
-    @tag :not_implemented
-    test "sends new tunnelling request when less than 3 attempts", context do
-      assert false
-      ref = make_ref()
-      sequence_counter = 10
-      tunnelling_request = tunnelling_request(sequence_counter)
-      tunnelling_ack = tunnelling_ack(sequence_counter, :e_sequence_number)
-
-      states =
-        Enum.map(0..2, fn attempts ->
-          %{
-            context.state
-            | requests_in_flight: %{sequence_counter => {tunnelling_request, ref, attempts}}
-          }
-        end)
-
-      Enum.each(states, fn state ->
-        {:noreply, state} = Tunnel.on_message(tunnelling_ack, state)
-        assert is_reference(state.connectionstate_response_timer.ref)
-
-        assert state.connectionstate_response_timer.ref !=
-                 context.state.connectionstate_response_timer.ref
+    @tag :group_write
+    test "stops tunnelling_ack_timer when status :e_no_error", context do
+      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+        {:ok, :got_transmit_ack_callback}
       end)
+
+      state = %{
+        context.state
+        | tunnelling_ack_timer: %{timer: make_ref(), ref: make_ref()},
+          tunnelling_request: {make_ref(), tunnelling_request(0)}
+      }
+
+      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), state)
+
+      refute is_reference(state.tunnelling_ack_timer.timer)
+      refute is_reference(state.tunnelling_ack_timer.ref)
     end
 
-    @tag :not_implemented
-    test "invokes on_ack_error callback when 3 attempts have failed" do
-      assert false
-    end
-  end
+    @tag :group_write
+    test "bumps sequence counter and removes tunnelling request from state when status :e_no_error",
+         context do
+      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+        {:ok, :got_transmit_ack_callback}
+      end)
 
-  describe "do_send/2" do
-    setup [:server_sockets, :init, :connect]
+      req = tunnelling_request(0)
+
+      state = %{
+        context.state
+        | tunnelling_request: {make_ref(), req}
+      }
+
+      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), state)
+      assert state.local_sequence_counter == context.state.local_sequence_counter + 1
+      assert state.tunnelling_request == nil
+    end
+
+    @tag :group_write
+    test "invokes transmit_ack with status code", context do
+      req = tunnelling_request(0)
+      req_ref = make_ref()
+
+      Mox.expect(TunnelMock, :transmit_ack, fn ref, status, _state ->
+        assert req_ref == ref
+        assert status == :e_no_error
+        {:ok, :got_transmit_ack_callback}
+      end)
+
+      state = %{
+        context.state
+        | tunnelling_request: {req_ref, req}
+      }
+
+      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), state)
+
+      assert state.mod_state == :got_transmit_ack_callback
+    end
+
+    @tag :group_write
+    test "sends the next request in the queue when status :e_no_error", context do
+      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+        {:ok, :got_transmit_ack_callback}
+      end)
+
+      telegram = %Telegram{
+        destination: "4/4/21",
+        service: :group_read,
+        source: "1.1.6",
+        type: :request,
+        value: <<0::6>>
+      }
+
+      req_ref = make_ref()
+
+      queue = :queue.new()
+      queue = :queue.in({req_ref, telegram}, queue)
+
+      state = %{
+        context.state
+        | tunnelling_request: {make_ref(), tunnelling_request(0)},
+          tunnelling_request_queue: queue,
+          local_sequence_counter: 0
+      }
+
+      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), state)
+
+      assert state.local_sequence_counter == context.state.local_sequence_counter + 1
+      assert {^req_ref, _req} = state.tunnelling_request
+
+      assert {:ok, {_, _, tunnelling_request_frame}} =
+               :gen_udp.recv(context.data_socket, 0, 1_000)
+
+      assert {:ok, %Tunnelling.TunnellingRequest{} = req} =
+               KNXnetIP.Frame.decode(tunnelling_request_frame)
+
+      assert {:ok, telegram} == KNXnetIP.Telegram.decode(req.telegram)
+      assert req.sequence_counter == state.local_sequence_counter
+    end
 
     @tag :not_implemented
     @tag :group_write
-    test "sends a tunnelling_request on data socket", context do
+    test "does not invoke transmit_ack if ack sequence counter does not match expected" do
+      assert false
+    end
+
+    @tag :not_implemented
+    @tag :group_write
+    test "resends and disconnects when status is not :e_no_error" do
+      false
+    end
+  end
+
+  describe "handle_cast/2 returns transmit" do
+    setup [:server_sockets, :init, :connect]
+
+    @tag :group_write
+    test "encodes and transmits a tunnelling_request on data socket", context do
       telegram = %Telegram{
         destination: "4/4/21",
         service: :group_read,
@@ -814,34 +877,84 @@ defmodule KNXnetIP.TunnelTest do
         value: <<0::6>>
       }
 
-      {:noreply, _state} = Tunnel.do_send(telegram, context.state)
+      Mox.expect(TunnelMock, :handle_cast, fn :test_transmit, _state ->
+        {:transmit, make_ref(), telegram, :transmitting}
+      end)
+
+      assert {:noreply, _state} = Tunnel.handle_cast(:test_transmit, context.state)
 
       assert {:ok, {_, _, tunnelling_request_frame}} =
                :gen_udp.recv(context.data_socket, 0, 1_000)
 
-      assert {:ok, %Tunnelling.TunnellingRequest{}} =
+      assert {:ok, %Tunnelling.TunnellingRequest{} = req} =
                KNXnetIP.Frame.decode(tunnelling_request_frame)
+
+      assert {:ok, telegram} == KNXnetIP.Telegram.decode(req.telegram)
     end
 
-    @tag :not_implemented
+    @tag :group_write
     test "adds tunnelling request to state", context do
-      sequence_counter = 0
-      attempts = 0
+      telegram = %Telegram{
+        destination: "4/4/21",
+        service: :group_read,
+        source: "1.1.5",
+        type: :request,
+        value: <<0::6>>
+      }
+
       ref = make_ref()
-      {:ok, state} = Tunnel.send_message(tunnelling_request(sequence_counter), ref, context.state)
 
-      assert map_size(state.requests_in_flight) == 1
+      Mox.expect(TunnelMock, :handle_cast, fn :test_transmit, _state ->
+        {:transmit, ref, telegram, :transmitting}
+      end)
 
-      assert %{sequence_counter => {tunnelling_request, ref, attempts}} ==
-               state.requests_in_flight
+      {:noreply, state} = Tunnel.handle_cast(:test_transmit, context.state)
+
+      assert {^ref, tunnelling_request} = state.tunnelling_request
+      assert {:ok, telegram} == KNXnetIP.Telegram.decode(tunnelling_request.telegram)
     end
 
-    @tag :not_implemented
+    @tag :group_write
     test "starts tunnelling_ack_timer", context do
-      {:ok, state} = Tunnel.send_message(tunnelling_request(), make_ref(), context.state)
+      Mox.expect(TunnelMock, :handle_cast, fn :test_transmit, _state ->
+        telegram = %Telegram{
+          destination: "4/4/21",
+          service: :group_read,
+          source: "1.1.5",
+          type: :request,
+          value: <<0::6>>
+        }
+
+        {:transmit, make_ref(), telegram, :transmitting}
+      end)
+
+      {:noreply, state} = Tunnel.handle_cast(:test_transmit, context.state)
 
       assert is_reference(state.tunnelling_ack_timer.timer)
       assert is_reference(state.tunnelling_ack_timer.ref)
+    end
+
+    @tag :group_write
+    test "puts telegram in transmit queue if waiting for ack", context do
+      telegram = %Telegram{
+        destination: "4/4/21",
+        service: :group_read,
+        source: "1.1.5",
+        type: :request,
+        value: <<0::6>>
+      }
+
+      ref = make_ref()
+
+      Mox.expect(TunnelMock, :handle_cast, fn :test_transmit, _state ->
+        {:transmit, ref, telegram, :transmitting}
+      end)
+
+      state = %{context.state | tunnelling_request: {make_ref(), telegram}}
+
+      {:noreply, state} = Tunnel.handle_cast(:test_transmit, state)
+
+      assert {{:value, {^ref, ^telegram}}, {[], []}} = :queue.out(state.tunnelling_request_queue)
     end
   end
 

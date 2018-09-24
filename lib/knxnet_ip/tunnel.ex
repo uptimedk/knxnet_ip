@@ -52,11 +52,14 @@ defmodule KNXnetIP.Tunnel do
   @callback on_telegram(message :: binary, state :: any) :: {:ok, state :: any}
 
   @callback handle_cast(message :: any, state :: any) ::
-              {:send, telegram :: any, state :: any}
+              {:transmit, ref :: reference(), telegram :: any, state :: any}
               | {:noreply, state :: any}
               | {:noreply, state :: any, timeout | :hibernate}
               | {:disconnect | :connect, info :: any, state :: any}
               | {:stop, reason :: any, state :: any}
+
+  @callback transmit_ack(ref :: reference(), status :: atom(), state :: any()) ::
+              {:ok, state :: any}
 
   @defaults ip: {127, 0, 0, 1},
             control_port: 0,
@@ -143,8 +146,8 @@ defmodule KNXnetIP.Tunnel do
   @doc false
   def handle_cast(request, state) do
     case apply(state.mod, :handle_cast, [request, state.mod_state]) do
-      {:send, telegram, mod_state} ->
-        do_send(telegram, %{state | mod_state: mod_state})
+      {:transmit, ref, telegram, mod_state} ->
+        transmit(ref, telegram, %{state | mod_state: mod_state})
 
       {:noreply, mod_state} ->
         {:noreply, %{state | mod_state: mod_state}}
@@ -298,7 +301,7 @@ defmodule KNXnetIP.Tunnel do
   defp handle_message(%Tunnelling.TunnellingRequest{} = msg, state) do
     case msg.sequence_counter - state.remote_sequence_counter do
       0 ->
-        {:ok, mod_state} = handle_telegram(msg, :on_telegram, state)
+        {:ok, mod_state} = handle_telegram(msg, state)
         remote_sequence_counter = increment_sequence_counter(msg.sequence_counter)
 
         new_state = %{
@@ -320,8 +323,25 @@ defmodule KNXnetIP.Tunnel do
   defp handle_message(%Tunnelling.TunnellingAck{} = msg, state) do
     if tunnelling_ack_result(msg, state) == :ok do
       timer = stop_timer(state.tunnelling_ack_timer)
-      state = %{state | tunnelling_ack_timer: timer, tunnelling_request: nil}
-      {:noreply, state}
+      {ref, _} = state.tunnelling_request
+
+      {:ok, mod_state} = apply(state.mod, :transmit_ack, [ref, msg.status, state.mod_state])
+
+      state = %{
+        state
+        | mod_state: mod_state,
+          tunnelling_request: nil,
+          tunnelling_ack_timer: timer,
+          local_sequence_counter: increment_sequence_counter(state.local_sequence_counter)
+      }
+
+      case :queue.out(state.tunnelling_request_queue) do
+        {{:value, {ref, telegram}}, queue} ->
+          transmit(ref, telegram, %{state | tunnelling_request_queue: queue})
+
+        {:empty, _queue} ->
+          {:noreply, state}
+      end
     else
       {:noreply, state}
     end
@@ -424,6 +444,7 @@ defmodule KNXnetIP.Tunnel do
       connectionstate_attempts: 0,
       tunnelling_attempts: 0,
       tunnelling_request: nil,
+      tunnelling_request_queue: :queue.new(),
       local_sequence_counter: 0,
       remote_sequence_counter: 0,
       disconnect_info: nil,
@@ -601,10 +622,10 @@ defmodule KNXnetIP.Tunnel do
     }
   end
 
-  defp handle_telegram(msg, function, state) do
+  defp handle_telegram(msg, state) do
     case Telegram.decode(msg.telegram) do
       {:ok, telegram} ->
-        apply(state.mod, function, [telegram, state.mod_state])
+        apply(state.mod, :on_telegram, [telegram, state.mod_state])
 
       {:error, error} ->
         Logger.warn(fn ->
@@ -615,22 +636,29 @@ defmodule KNXnetIP.Tunnel do
     end
   end
 
-  def do_send(telegram, state) do
-    state =
-      case Telegram.encode(telegram) do
-        {:ok, encoded_telegram} ->
-          :ok =
-            encoded_telegram
-            |> tunnelling_request(state)
-            |> send_data(state)
+  defp transmit(ref, telegram, %{tunnelling_request: nil} = state) do
+    with {:ok, encoded_telegram} <- Telegram.encode(telegram),
+         request = tunnelling_request(encoded_telegram, state),
+         :ok <- send_data(request, state) do
+      tunnelling_ack_timer = start_timer(:tunnelling_ack_timer, state)
 
-          %{state | local_sequence_counter: state.local_sequence_counter + 1}
+      state = %{
+        state
+        | tunnelling_request: {ref, request},
+          tunnelling_ack_timer: tunnelling_ack_timer
+      }
 
-        error ->
-          Logger.warn(fn -> "Could not send: #{inspect(error)}" end)
-          state
-      end
+      {:noreply, state}
+    else
+      error ->
+        Logger.warn(fn -> "Could not transmit: #{inspect(error)}" end)
+        {:noreply, state}
+    end
+  end
 
-    {:noreply, state}
+  defp transmit(ref, telegram, state) do
+    tunnelling_request_queue = :queue.in({ref, telegram}, state.tunnelling_request_queue)
+
+    {:noreply, %{state | tunnelling_request_queue: tunnelling_request_queue}}
   end
 end
