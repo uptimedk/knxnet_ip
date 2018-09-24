@@ -115,7 +115,7 @@ defmodule KNXnetIP.TunnelTest do
     setup [:server_sockets, :init, :connect]
 
     test "invokes handle_cast of callback module", context do
-      Mox.expect(TunnelMock, :handle_cast, fn msg, state -> {:noreply, :handle_cast_invoked} end)
+      Mox.expect(TunnelMock, :handle_cast, fn _msg, _state -> {:noreply, :handle_cast_invoked} end)
 
       assert {:noreply, %{mod_state: :handle_cast_invoked}} =
                Tunnel.handle_cast(nil, context.state)
@@ -684,7 +684,8 @@ defmodule KNXnetIP.TunnelTest do
     @tag :tunnelling_request
     test "increments remote sequence conter when tunnelling request is next in sequence",
          context do
-      # TODO: check that it invokes mod
+      Mox.expect(TunnelMock, :on_telegram, fn _msg, _state -> {:ok, :new_mod_state} end)
+
       tunnelling_request = tunnelling_request()
       {:noreply, state} = Tunnel.on_message(tunnelling_request, context.state)
 
@@ -694,6 +695,8 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_request
     test "sends ack when tunnelling request is next in sequence", context do
+      Mox.expect(TunnelMock, :on_telegram, fn _msg, _state -> {:ok, :new_mod_state} end)
+
       tunnelling_request = tunnelling_request()
       {:noreply, _state} = Tunnel.on_message(tunnelling_request, context.state)
 
@@ -703,6 +706,8 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_request
     test "sends ack when tunnelling request is equal to sequence", context do
+      Mox.expect(TunnelMock, :on_telegram, fn _msg, _state -> {:ok, :new_mod_state} end)
+
       tunnelling_request = tunnelling_request(0)
       {:noreply, _state} = Tunnel.on_message(tunnelling_request, context.state)
 
@@ -712,6 +717,8 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_request
     test "does not send ack when tunnelling request is out of sequence", context do
+      Mox.expect(TunnelMock, :on_telegram, fn _msg, _state -> {:ok, :new_mod_state} end)
+
       state = %{context.state | remote_sequence_counter: 10}
 
       {:noreply, _state} = Tunnel.on_message(tunnelling_request(8), state)
@@ -722,6 +729,8 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_request
     test "resets sequence counter when it has reached 255", context do
+      Mox.expect(TunnelMock, :on_telegram, fn _msg, _state -> {:ok, :new_mod_state} end)
+
       state = %{context.state | remote_sequence_counter: 255}
 
       {:noreply, state} = Tunnel.on_message(tunnelling_request(255), state)
@@ -805,7 +814,7 @@ defmodule KNXnetIP.TunnelTest do
         value: <<0::6>>
       }
 
-      {:noreply, state} = Tunnel.do_send(telegram, context.state)
+      {:noreply, _state} = Tunnel.do_send(telegram, context.state)
 
       assert {:ok, {_, _, tunnelling_request_frame}} =
                :gen_udp.recv(context.data_socket, 0, 1_000)

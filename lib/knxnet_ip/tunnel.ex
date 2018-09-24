@@ -48,7 +48,15 @@ defmodule KNXnetIP.Tunnel do
   @callback init(args :: term) ::
               {:ok, state :: any}
               | {:stop, reason :: any}
+
   @callback on_telegram(message :: binary, state :: any) :: {:ok, state :: any}
+
+  @callback handle_cast(message :: any, state :: any) ::
+              {:send, telegram :: any, state :: any}
+              | {:noreply, state :: any}
+              | {:noreply, state :: any, timeout | :hibernate}
+              | {:disconnect | :connect, info :: any, state :: any}
+              | {:stop, reason :: any, state :: any}
 
   @defaults ip: {127, 0, 0, 1},
             control_port: 0,
