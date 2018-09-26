@@ -51,15 +51,15 @@ defmodule KNXnetIP.Tunnel do
 
   @callback on_telegram(message :: binary, state :: any) :: {:ok, state :: any}
 
+  @callback transmit_ack(ref :: reference(), status :: atom(), state :: any()) ::
+              {:ok, state :: any}
+
   @callback handle_cast(message :: any, state :: any) ::
               {:transmit, ref :: reference(), telegram :: any, state :: any}
               | {:noreply, state :: any}
               | {:noreply, state :: any, timeout | :hibernate}
               | {:disconnect | :connect, info :: any, state :: any}
               | {:stop, reason :: any, state :: any}
-
-  @callback transmit_ack(ref :: reference(), status :: atom(), state :: any()) ::
-              {:ok, state :: any}
 
   @defaults ip: {127, 0, 0, 1},
             control_port: 0,
@@ -331,14 +331,15 @@ defmodule KNXnetIP.Tunnel do
         state = %{
           state
           | mod_state: mod_state,
+            tunnelling_timeouts: 0,
             tunnelling_request: nil,
             tunnelling_ack_timer: timer,
             local_sequence_counter: increment_sequence_counter(state.local_sequence_counter)
         }
 
-        case :queue.out(state.tunnelling_request_queue) do
+        case :queue.out(state.telegram_queue) do
           {{:value, {ref, telegram}}, queue} ->
-            transmit(ref, telegram, %{state | tunnelling_request_queue: queue})
+            transmit(ref, telegram, %{state | telegram_queue: queue})
 
           {:empty, _queue} ->
             {:noreply, state}
@@ -394,10 +395,11 @@ defmodule KNXnetIP.Tunnel do
     {:disconnect, state.disconnect_info, state}
   end
 
-  defp handle_timeout(:tunnelling_ack_timer, %{tunnelling_attempts: attempts} = state)
-       when attempts <= 1 do
-    :ok = send_data(state.tunnelling_request, state)
-    {:noreply, %{state | tunnelling_attempts: state.tunnelling_attempts + 1}}
+  defp handle_timeout(:tunnelling_ack_timer, %{tunnelling_timeouts: timeouts} = state)
+       when timeouts < 1 do
+    {_, request} = state.tunnelling_request
+    :ok = send_data(request, state)
+    {:noreply, %{state | tunnelling_timeouts: state.tunnelling_timeouts + 1}}
   end
 
   defp handle_timeout(:tunnelling_ack_timer, state) do
@@ -457,9 +459,9 @@ defmodule KNXnetIP.Tunnel do
       data_socket: nil,
       communication_channel_id: nil,
       connectionstate_attempts: 0,
-      tunnelling_attempts: 0,
+      telegram_queue: :queue.new(),
+      tunnelling_timeouts: 0,
       tunnelling_request: nil,
-      tunnelling_request_queue: :queue.new(),
       local_sequence_counter: 0,
       remote_sequence_counter: 0,
       disconnect_info: nil,
@@ -672,8 +674,8 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp transmit(ref, telegram, state) do
-    tunnelling_request_queue = :queue.in({ref, telegram}, state.tunnelling_request_queue)
+    telegram_queue = :queue.in({ref, telegram}, state.telegram_queue)
 
-    {:noreply, %{state | tunnelling_request_queue: tunnelling_request_queue}}
+    {:noreply, %{state | telegram_queue: telegram_queue}}
   end
 end

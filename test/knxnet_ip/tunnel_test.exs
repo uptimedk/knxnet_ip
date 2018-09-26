@@ -5,6 +5,10 @@ defmodule KNXnetIP.TunnelTest do
   alias KNXnetIP.{Telegram, Tunnel}
   alias KNXnetIP.Support.TunnelMock
 
+  import Mox
+
+  setup [:verify_on_exit!]
+
   describe "init/1" do
     @tag :init
     test "if mod.init/1 sucess will return connect tuple" do
@@ -284,85 +288,56 @@ defmodule KNXnetIP.TunnelTest do
   end
 
   describe "handle_timeout/2 tunnelling ack" do
-    setup [:server_sockets, :init, :connect]
+    setup [:server_sockets, :init, :connect, :transmit]
 
     @tag :tunnelling_ack_timeout
-    test "increments tunnelling attempts when attempts less than 2", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
-        assert false, "We should not invoke transmit_ack unless we have two failures"
-      end)
+    test "increments tunnelling timeouts on first timeout", context do
+      Mox.expect(TunnelMock, :transmit_ack, 0, fn _, _, _ -> :ok end)
 
-      ref = make_ref()
-      timeout = {:timeout, :tunnelling_ack_timer, ref}
-      {:ok, data_port} = :inet.port(context.data_socket)
+      timeout = {:timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
 
-      states =
-        Enum.map(0..1, fn attempts ->
-          %{
-            context.state
-            | server_data_port: data_port,
-              tunnelling_ack_timer: %{timer: ref, ref: ref, timeout: 10_000},
-              tunnelling_request: tunnelling_request(),
-              tunnelling_attempts: attempts
-          }
-        end)
-
-      Enum.each(states, fn state ->
-        {:noreply, new_state} = Tunnel.handle_info(timeout, state)
-        assert new_state.tunnelling_attempts == state.tunnelling_attempts + 1
-      end)
+      {:noreply, state} = Tunnel.handle_info(timeout, context.state)
+      assert state.tunnelling_timeouts == context.state.tunnelling_timeouts + 1
     end
 
     @tag :tunnelling_ack_timeout
-    test "resends tunnelling request when attempts less than 2", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
-        assert false, "We should not invoke transmit_ack unless we have two failures"
-      end)
+    test "resends tunnelling request on first timeout", context do
+      Mox.expect(TunnelMock, :transmit_ack, 0, fn _, _, _ -> :ok end)
 
-      ref = make_ref()
-      timeout = {:timeout, :tunnelling_ack_timer, ref}
-      {:ok, data_port} = :inet.port(context.data_socket)
+      timeout = {:timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
 
-      states =
-        Enum.map(0..1, fn attempts ->
-          %{
-            context.state
-            | server_data_port: data_port,
-              tunnelling_ack_timer: %{timer: ref, ref: ref, timeout: 10_000},
-              tunnelling_request: tunnelling_request(),
-              tunnelling_attempts: attempts
-          }
-        end)
+      {:noreply, _state} = Tunnel.handle_info(timeout, context.state)
 
-      Enum.each(states, fn state ->
-        {:noreply, _state} = Tunnel.handle_info(timeout, state)
+      assert {:ok, {_, _, tunnelling_request_frame}} =
+               :gen_udp.recv(context.data_socket, 0, 1_000)
 
-        assert {:ok, {_, _, tunnelling_request_frame}} =
-                 :gen_udp.recv(context.data_socket, 0, 1_000)
-
-        assert {:ok, %Tunnelling.TunnellingRequest{}} =
-                 KNXnetIP.Frame.decode(tunnelling_request_frame)
-      end)
+      assert {:ok, %Tunnelling.TunnellingRequest{}} =
+               KNXnetIP.Frame.decode(tunnelling_request_frame)
     end
 
     @tag :tunnelling_ack_timeout
-    test "sends a disconnect request when 2 attempts and sets disconnect info", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn _ref, status, _state ->
+    test "invokes transmit_ack callback with timeout status on second timeout", context do
+      Mox.expect(TunnelMock, :transmit_ack, fn ref, status, _state ->
         assert status == :timeout
-        {:ok, :got_transmit_ack_callback}
+        assert {^ref, _} = context.state.tunnelling_request
+        {:ok, :got_transmit_ack_timeout}
       end)
 
-      ref = make_ref()
-      timeout = {:timeout, :tunnelling_ack_timer, ref}
-      {:ok, data_port} = :inet.port(context.data_socket)
+      state = %{context.state | tunnelling_timeouts: 1}
+      timeout = {:timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
 
-      state = %{
-        context.state
-        | server_data_port: data_port,
-          tunnelling_ack_timer: %{timer: ref, ref: ref, timeout: 10_000},
-          tunnelling_request: {ref, tunnelling_request()},
-          tunnelling_attempts: 2
-      }
+      {:noreply, state} = Tunnel.handle_info(timeout, state)
+
+      assert state.mod_state == :got_transmit_ack_timeout
+    end
+
+    @tag :tunnelling_ack_timeout
+    test "repeats tunnelling request and sends a disconnect request on second timeout", context do
+      Mox.expect(TunnelMock, :transmit_ack, fn _, _, _ -> {:ok, :got_transmit_ack_callback} end)
+
+      timeout = {:timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
+
+      state = %{context.state | tunnelling_timeouts: 1}
 
       {:noreply, state} = Tunnel.handle_info(timeout, state)
 
@@ -378,7 +353,6 @@ defmodule KNXnetIP.TunnelTest do
       assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
 
       assert state.disconnect_info == {:error, :no_tunnelling_ack}
-      Mox.verify!()
     end
   end
 
@@ -726,13 +700,6 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_request
     test "does not send ack when tunnelling request is out of sequence", context do
-      Mox.expect(TunnelMock, :on_telegram, fn _msg, _state -> {:ok, :new_mod_state} end)
-
-      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
-        assert false,
-               "should not have invoked transmit_ack when ack sequence counter does not match expected"
-      end)
-
       state = %{context.state | remote_sequence_counter: 10}
 
       {:noreply, _state} = Tunnel.on_message(tunnelling_request(8), state)
@@ -755,50 +722,55 @@ defmodule KNXnetIP.TunnelTest do
     end
   end
 
-  describe "on_message/2 tunnelling ack" do
-    setup [:server_sockets, :init, :connect]
+  describe "on_message/2 tunnelling ack when status :e_no_error" do
+    setup [:server_sockets, :init, :connect, :transmit]
 
-    @tag :group_write
-    test "stops tunnelling_ack_timer when status :e_no_error", context do
+    @tag :tunnelling_ack
+    test "stops tunnelling_ack_timer", context do
       Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
         {:ok, :got_transmit_ack_callback}
       end)
 
-      state = %{
-        context.state
-        | tunnelling_ack_timer: %{timer: make_ref(), ref: make_ref()},
-          tunnelling_request: {make_ref(), tunnelling_request(0)}
-      }
-
-      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), state)
+      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), context.state)
 
       refute is_reference(state.tunnelling_ack_timer.timer)
       refute is_reference(state.tunnelling_ack_timer.ref)
     end
 
-    @tag :group_write
-    test "bumps sequence counter and removes tunnelling request from state when status :e_no_error",
-         context do
+    @tag :tunnelling_ack
+    test "resets tunnelling timeouts counter", context do
       Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
         {:ok, :got_transmit_ack_callback}
       end)
 
-      req = tunnelling_request(0)
-
-      state = %{
-        context.state
-        | tunnelling_request: {make_ref(), req}
-      }
-
+      state = %{context.state | tunnelling_timeouts: 1}
       {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), state)
-      assert state.local_sequence_counter == context.state.local_sequence_counter + 1
+      assert state.tunnelling_timeouts == 0
+    end
+
+    @tag :tunnelling_ack
+    test "removes tunnelling request from state", context do
+      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+        {:ok, :got_transmit_ack_callback}
+      end)
+
+      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), context.state)
       assert state.tunnelling_request == nil
     end
 
-    @tag :group_write
+    @tag :tunnelling_ack
+    test "bumps sequence counter", context do
+      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+        {:ok, :got_transmit_ack_callback}
+      end)
+
+      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), context.state)
+      assert state.local_sequence_counter == context.state.local_sequence_counter + 1
+    end
+
+    @tag :tunnelling_ack
     test "invokes transmit_ack with status code", context do
-      req = tunnelling_request(0)
-      req_ref = make_ref()
+      {req_ref, _} = context.state.tunnelling_request
 
       Mox.expect(TunnelMock, :transmit_ack, fn ref, status, _state ->
         assert req_ref == ref
@@ -806,18 +778,13 @@ defmodule KNXnetIP.TunnelTest do
         {:ok, :got_transmit_ack_callback}
       end)
 
-      state = %{
-        context.state
-        | tunnelling_request: {req_ref, req}
-      }
-
-      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), state)
+      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), context.state)
 
       assert state.mod_state == :got_transmit_ack_callback
     end
 
-    @tag :group_write
-    test "sends the next request in the queue when status :e_no_error", context do
+    @tag :tunnelling_ack
+    test "sends the next telegram in the queue", context do
       Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
         {:ok, :got_transmit_ack_callback}
       end)
@@ -835,12 +802,7 @@ defmodule KNXnetIP.TunnelTest do
       queue = :queue.new()
       queue = :queue.in({req_ref, telegram}, queue)
 
-      state = %{
-        context.state
-        | tunnelling_request: {make_ref(), tunnelling_request(0)},
-          tunnelling_request_queue: queue,
-          local_sequence_counter: 0
-      }
+      state = %{context.state | telegram_queue: queue}
 
       {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), state)
 
@@ -856,27 +818,21 @@ defmodule KNXnetIP.TunnelTest do
       assert {:ok, telegram} == KNXnetIP.Telegram.decode(req.telegram)
       assert req.sequence_counter == state.local_sequence_counter
     end
+  end
 
-    @tag :group_write
-    test "resends and disconnects when status is not :e_no_error", context do
+  describe "on_message/2 tunnelling ack when status is not :e_no_error" do
+    setup [:server_sockets, :init, :connect, :transmit]
+
+    @tag :tunnelling_ack
+    test "repeats tunnelling request and disconnects", context do
       Mox.expect(TunnelMock, :transmit_ack, fn _ref, status, _state ->
         assert status == :anything_but_e_no_error
         {:ok, :got_transmit_ack_callback}
       end)
 
       tun_ack = tunnelling_ack(0, :anything_but_e_no_error)
-      ref = make_ref()
-      {:ok, data_port} = :inet.port(context.data_socket)
 
-      state = %{
-        context.state
-        | server_data_port: data_port,
-          tunnelling_request: {ref, tunnelling_request()},
-          communication_channel_id: tun_ack.communication_channel_id,
-          local_sequence_counter: 0
-      }
-
-      assert {:noreply, state} = Tunnel.on_message(tun_ack, state)
+      assert {:noreply, state} = Tunnel.on_message(tun_ack, context.state)
 
       assert {:ok, {_, _, tunnelling_request_frame}} =
                :gen_udp.recv(context.data_socket, 0, 1_000)
@@ -890,14 +846,13 @@ defmodule KNXnetIP.TunnelTest do
       assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
 
       assert state.disconnect_info == {:error, :anything_but_e_no_error}
-      Mox.verify!()
     end
   end
 
   describe "handle_cast/2 returns transmit" do
     setup [:server_sockets, :init, :connect]
 
-    @tag :group_write
+    @tag :transmit
     test "encodes and transmits a tunnelling_request on data socket", context do
       telegram = %Telegram{
         destination: "4/4/21",
@@ -922,7 +877,7 @@ defmodule KNXnetIP.TunnelTest do
       assert {:ok, telegram} == KNXnetIP.Telegram.decode(req.telegram)
     end
 
-    @tag :group_write
+    @tag :transmit
     test "adds tunnelling request to state", context do
       telegram = %Telegram{
         destination: "4/4/21",
@@ -944,7 +899,7 @@ defmodule KNXnetIP.TunnelTest do
       assert {:ok, telegram} == KNXnetIP.Telegram.decode(tunnelling_request.telegram)
     end
 
-    @tag :group_write
+    @tag :transmit
     test "starts tunnelling_ack_timer", context do
       Mox.expect(TunnelMock, :handle_cast, fn :test_transmit, _state ->
         telegram = %Telegram{
@@ -964,8 +919,8 @@ defmodule KNXnetIP.TunnelTest do
       assert is_reference(state.tunnelling_ack_timer.ref)
     end
 
-    @tag :group_write
-    test "puts telegram in transmit queue if waiting for ack", context do
+    @tag :transmit
+    test "puts telegram in queue if waiting for tunnelling request ack", context do
       telegram = %Telegram{
         destination: "4/4/21",
         service: :group_read,
@@ -984,7 +939,7 @@ defmodule KNXnetIP.TunnelTest do
 
       {:noreply, state} = Tunnel.handle_cast(:test_transmit, state)
 
-      assert {{:value, {^ref, ^telegram}}, {[], []}} = :queue.out(state.tunnelling_request_queue)
+      assert {{:value, {^ref, ^telegram}}, {[], []}} = :queue.out(state.telegram_queue)
     end
   end
 
@@ -1013,6 +968,27 @@ defmodule KNXnetIP.TunnelTest do
     {:ok, state} = Tunnel.connect(:init, context.state)
     {:noreply, state} = Tunnel.on_message(connect_response, state)
     :gen_udp.recv(context.control_socket, 0, 1_000)
+
+    %{state: state}
+  end
+
+  defp transmit(context) do
+    telegram = %Telegram{
+      destination: "4/4/21",
+      service: :group_read,
+      source: "1.1.5",
+      type: :request,
+      value: <<0::6>>
+    }
+
+    ref = make_ref()
+
+    Mox.expect(TunnelMock, :handle_cast, fn :setup_transmit, _state ->
+      {:transmit, ref, telegram, :transmitting}
+    end)
+
+    {:noreply, state} = Tunnel.handle_cast(:setup_transmit, context.state)
+    :gen_udp.recv(context.data_socket, 0, 1_000)
 
     %{state: state}
   end
