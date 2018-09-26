@@ -82,9 +82,9 @@ The KNXnetIP.Tunnel behaviour sports the following features:
 - [x] Reconnect if the heartbeat fails due to timeouts or other errors
 - [x] Disconnect and reconnect to KNX IP interface if it receives a DISCONNECT_REQUEST
 - [x] Handle duplicate TUNNELLING_REQUESTS from server according to the specification
-- [ ] Send TUNNELLING_REQUESTS to the server
-- [ ] Resend TUNNELLING_REQUEST if no TUNNELLING_ACK is received
-- [ ] Disconnect and reconnect if TUNNELING_ACK is not received or signals an error
+- [x] Send TUNNELLING_REQUESTS to the server
+- [x] Resend TUNNELLING_REQUEST if no TUNNELLING_ACK is received
+- [x] Disconnect and reconnect if TUNNELING_ACK is not received or signals an error
 
 ## Installation
 
