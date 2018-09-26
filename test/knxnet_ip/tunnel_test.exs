@@ -288,6 +288,10 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_ack_timeout
     test "increments tunnelling attempts when attempts less than 2", context do
+      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+        assert false, "We should not invoke transmit_ack unless we have two failures"
+      end)
+
       ref = make_ref()
       timeout = {:timeout, :tunnelling_ack_timer, ref}
       {:ok, data_port} = :inet.port(context.data_socket)
@@ -311,6 +315,10 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_ack_timeout
     test "resends tunnelling request when attempts less than 2", context do
+      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+        assert false, "We should not invoke transmit_ack unless we have two failures"
+      end)
+
       ref = make_ref()
       timeout = {:timeout, :tunnelling_ack_timer, ref}
       {:ok, data_port} = :inet.port(context.data_socket)
@@ -339,6 +347,11 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_ack_timeout
     test "sends a disconnect request when 2 attempts and sets disconnect info", context do
+      Mox.expect(TunnelMock, :transmit_ack, fn _ref, status, _state ->
+        assert status == :timeout
+        {:ok, :got_transmit_ack_callback}
+      end)
+
       ref = make_ref()
       timeout = {:timeout, :tunnelling_ack_timer, ref}
       {:ok, data_port} = :inet.port(context.data_socket)
@@ -347,37 +360,25 @@ defmodule KNXnetIP.TunnelTest do
         context.state
         | server_data_port: data_port,
           tunnelling_ack_timer: %{timer: ref, ref: ref, timeout: 10_000},
-          tunnelling_request: tunnelling_request(),
+          tunnelling_request: {ref, tunnelling_request()},
           tunnelling_attempts: 2
       }
 
       {:noreply, state} = Tunnel.handle_info(timeout, state)
 
+      assert {:ok, {_, _, tunnelling_request_frame}} =
+               :gen_udp.recv(context.data_socket, 0, 1_000)
+
+      assert {:ok, %Tunnelling.TunnellingRequest{}} =
+               KNXnetIP.Frame.decode(tunnelling_request_frame)
+
       assert {:ok, {_, _, disconnect_request_frame}} =
                :gen_udp.recv(context.control_socket, 0, 1_000)
 
       assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
+
       assert state.disconnect_info == {:error, :no_tunnelling_ack}
-    end
-  end
-
-  describe "handle_timeout/2 tunnelling request" do
-    @tag :not_implemented
-    @tag :group_write
-    test "repeats tunnelling request on first timeout" do
-      assert false
-    end
-
-    @tag :not_implemented
-    @tag :group_write
-    test "repeats tunnelling request and disconnects on second timeout" do
-      assert false
-    end
-
-    @tag :not_implemented
-    @tag :group_write
-    test "invokes transmit_ack callback with timeout status on second timeout" do
-      assert false
+      Mox.verify!()
     end
   end
 
@@ -727,6 +728,11 @@ defmodule KNXnetIP.TunnelTest do
     test "does not send ack when tunnelling request is out of sequence", context do
       Mox.expect(TunnelMock, :on_telegram, fn _msg, _state -> {:ok, :new_mod_state} end)
 
+      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+        assert false,
+               "should not have invoked transmit_ack when ack sequence counter does not match expected"
+      end)
+
       state = %{context.state | remote_sequence_counter: 10}
 
       {:noreply, _state} = Tunnel.on_message(tunnelling_request(8), state)
@@ -851,16 +857,40 @@ defmodule KNXnetIP.TunnelTest do
       assert req.sequence_counter == state.local_sequence_counter
     end
 
-    @tag :not_implemented
     @tag :group_write
-    test "does not invoke transmit_ack if ack sequence counter does not match expected" do
-      assert false
-    end
+    test "resends and disconnects when status is not :e_no_error", context do
+      Mox.expect(TunnelMock, :transmit_ack, fn _ref, status, _state ->
+        assert status == :anything_but_e_no_error
+        {:ok, :got_transmit_ack_callback}
+      end)
 
-    @tag :not_implemented
-    @tag :group_write
-    test "resends and disconnects when status is not :e_no_error" do
-      false
+      tun_ack = tunnelling_ack(0, :anything_but_e_no_error)
+      ref = make_ref()
+      {:ok, data_port} = :inet.port(context.data_socket)
+
+      state = %{
+        context.state
+        | server_data_port: data_port,
+          tunnelling_request: {ref, tunnelling_request()},
+          communication_channel_id: tun_ack.communication_channel_id,
+          local_sequence_counter: 0
+      }
+
+      assert {:noreply, state} = Tunnel.on_message(tun_ack, state)
+
+      assert {:ok, {_, _, tunnelling_request_frame}} =
+               :gen_udp.recv(context.data_socket, 0, 1_000)
+
+      assert {:ok, %Tunnelling.TunnellingRequest{}} =
+               KNXnetIP.Frame.decode(tunnelling_request_frame)
+
+      assert {:ok, {_, _, disconnect_request_frame}} =
+               :gen_udp.recv(context.control_socket, 0, 1_000)
+
+      assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
+
+      assert state.disconnect_info == {:error, :anything_but_e_no_error}
+      Mox.verify!()
     end
   end
 

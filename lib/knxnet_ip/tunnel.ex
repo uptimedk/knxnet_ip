@@ -321,29 +321,39 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp handle_message(%Tunnelling.TunnellingAck{} = msg, state) do
-    if tunnelling_ack_result(msg, state) == :ok do
-      timer = stop_timer(state.tunnelling_ack_timer)
-      {ref, _} = state.tunnelling_request
+    case tunnelling_ack_result(msg, state) do
+      :ok ->
+        timer = stop_timer(state.tunnelling_ack_timer)
+        {ref, _} = state.tunnelling_request
 
-      {:ok, mod_state} = apply(state.mod, :transmit_ack, [ref, msg.status, state.mod_state])
+        {:ok, mod_state} = apply(state.mod, :transmit_ack, [ref, msg.status, state.mod_state])
 
-      state = %{
-        state
-        | mod_state: mod_state,
-          tunnelling_request: nil,
-          tunnelling_ack_timer: timer,
-          local_sequence_counter: increment_sequence_counter(state.local_sequence_counter)
-      }
+        state = %{
+          state
+          | mod_state: mod_state,
+            tunnelling_request: nil,
+            tunnelling_ack_timer: timer,
+            local_sequence_counter: increment_sequence_counter(state.local_sequence_counter)
+        }
 
-      case :queue.out(state.tunnelling_request_queue) do
-        {{:value, {ref, telegram}}, queue} ->
-          transmit(ref, telegram, %{state | tunnelling_request_queue: queue})
+        case :queue.out(state.tunnelling_request_queue) do
+          {{:value, {ref, telegram}}, queue} ->
+            transmit(ref, telegram, %{state | tunnelling_request_queue: queue})
 
-        {:empty, _queue} ->
-          {:noreply, state}
-      end
-    else
-      {:noreply, state}
+          {:empty, _queue} ->
+            {:noreply, state}
+        end
+
+      :disconnect ->
+        {ref, request} = state.tunnelling_request
+
+        :ok = send_data(request, state)
+        {:ok, mod_state} = apply(state.mod, :transmit_ack, [ref, msg.status, state.mod_state])
+
+        do_disconnect({:error, msg.status}, %{state | mod_state: mod_state})
+
+      _ ->
+        {:noreply, state}
     end
   end
 
@@ -362,7 +372,7 @@ defmodule KNXnetIP.Tunnel do
     end
   end
 
-  defp tunnelling_ack_result(_msg, _state), do: :discard
+  defp tunnelling_ack_result(_msg, _state), do: :disconnect
 
   ##
   ## Timers
@@ -391,7 +401,12 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp handle_timeout(:tunnelling_ack_timer, state) do
-    do_disconnect({:error, :no_tunnelling_ack}, state)
+    {ref, request} = state.tunnelling_request
+
+    :ok = send_data(request, state)
+    {:ok, mod_state} = apply(state.mod, :transmit_ack, [ref, :timeout, state.mod_state])
+
+    do_disconnect({:error, :no_tunnelling_ack}, %{state | mod_state: mod_state})
   end
 
   defp start_timer(name, state) do
