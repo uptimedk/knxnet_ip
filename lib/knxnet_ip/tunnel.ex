@@ -654,19 +654,20 @@ defmodule KNXnetIP.Tunnel do
   end
 
   defp transmit(ref, telegram, %{tunnelling_request: nil} = state) do
-    with {:ok, encoded_telegram} <- Telegram.encode(telegram),
-         request = tunnelling_request(encoded_telegram, state),
-         :ok <- send_data(request, state) do
-      tunnelling_ack_timer = start_timer(:tunnelling_ack_timer, state)
+    case Telegram.encode(telegram) do
+      {:ok, encoded_telegram} ->
+        request = tunnelling_request(encoded_telegram, state)
+        :ok = send_data(request, state)
+        tunnelling_ack_timer = start_timer(:tunnelling_ack_timer, state)
 
-      state = %{
-        state
-        | tunnelling_request: {ref, request},
-          tunnelling_ack_timer: tunnelling_ack_timer
-      }
+        state = %{
+          state
+          | tunnelling_request: {ref, request},
+            tunnelling_ack_timer: tunnelling_ack_timer
+        }
 
-      {:noreply, state}
-    else
+        {:noreply, state}
+
       error ->
         Logger.warn(fn -> "Could not transmit: #{inspect(error)}" end)
         {:noreply, state}
