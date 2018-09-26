@@ -2,6 +2,7 @@ defmodule KNXnetIP.TelegramTest do
   use ExUnit.Case, async: true
 
   alias KNXnetIP.Telegram
+  alias KNXnetIP.Support.Framer
 
   describe "L_Data.ind" do
     test "decode/encode A_GroupValue_Write" do
@@ -13,15 +14,31 @@ defmodule KNXnetIP.TelegramTest do
         value: <<0x1917::16>>
       }
 
-      encoded = <<
-        0x29, 0x00, # Message code, additional info length
-        0xBC, 0xE0, # ctrl1, ctrl2
-        0x01::4, 0x01::4, 0x01::8, # Source (SAH, SAL)
-        0x00::5, 0x00::3, 0x03::8, # Destination (DAH, DAL)
-        0x03::8, # octet count (TPDU length - 1)
-        0x00::6, 0x02::4, 0x00::6, # TPCI, APCI (application control field), APCI/data
-        0x1917::16, # data
-      >>
+      encoded =
+        Framer.encode("""
+        +-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+
+        | Message Code                  | Additional info length        |
+        | (29h)                         | (00h)                         |
+        +-------------------------------+-------------------------------+
+        | Ctrl1                         | Ctrl2                         |
+        | (BCh)                         | (E0h)                         |
+        +---------------------------------------------------------------+
+        | SAH (1.1)                     | SAL (1)                       |
+        | (11h)                         | (01h)                         |
+        +---------------------------------------------------------------+
+        | DAH (0/0)                     | DAL (3)                       |
+        | (00h)                         | (03h)                         |
+        +-------------------------------+-------------------------------+
+        | Octet count (TDPU length - 1)                                 |
+        | (03h)                                                         |
+        +---------------------------------------------------------------+
+        | TCPI, ACPI, ACPI/data                                         |
+        | (0080h)                                                       |
+        +---------------------------------------------------------------+
+        | Data                                                          |
+        | (1917h)                                                       |
+        +-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+
+        """)
 
       assert {:ok, decoded} == Telegram.decode(encoded)
       assert {:ok, encoded} == Telegram.encode(decoded)
@@ -33,17 +50,31 @@ defmodule KNXnetIP.TelegramTest do
         source: "1.0.3",
         destination: "0/0/3",
         service: :group_read,
-        value: <<0::6>>,
+        value: <<0::6>>
       }
 
-      encoded = <<
-        0x29, 0x00, # Message code, additional info length
-        0xBC, 0xE0, # ctrl1, ctrl2
-        0x01::4, 0x00::4, 0x03::8, # Source (SAH, SAL)
-        0x00::5, 0x00::3, 0x03::8, # Destination (DAH, DAL)
-        0x01::8, # octet count (TPDU length - 1)
-        0x00::6, 0x00::4, 0x00::6, # TPCI, application control field, APCI/data
-      >>
+      encoded =
+        Framer.encode("""
+        +-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+
+        | Message Code                  | Additional info length        |
+        | (29h)                         | (00h)                         |
+        +-------------------------------+-------------------------------+
+        | Ctrl1                         | Ctrl2                         |
+        | (BCh)                         | (E0h)                         |
+        +---------------------------------------------------------------+
+        | SAH (1.0)                     | SAL (3)                       |
+        | (10h)                         | (03h)                         |
+        +---------------------------------------------------------------+
+        | DAH (0/0)                     | DAL (3)                       |
+        | (00h)                         | (03h)                         |
+        +-------------------------------+-------------------------------+
+        | Octet count (TDPU length - 1)                                 |
+        | (01h)                                                         |
+        +---------------------------------------------------------------+
+        | TCPI, ACPI, ACPI/data                                         |
+        | (0000h)                                                       |
+        +-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+
+        """)
 
       assert {:ok, decoded} == Telegram.decode(encoded)
       assert {:ok, encoded} == Telegram.encode(decoded)
@@ -58,15 +89,31 @@ defmodule KNXnetIP.TelegramTest do
         value: <<0x41, 0x46, 0x8F, 0x5C>>
       }
 
-      encoded = <<
-        0x29, 0x00,
-        0xBC, 0xE0,
-        0x01::4, 0x01::4, 0x04::8,
-        0x00::5, 0x00::3, 0x02::8,
-        0x05::8,
-        0x00::6, 0x01::4, 0x00::6,
-        0x41, 0x46, 0x8F, 0x5C,
-      >>
+      encoded =
+        Framer.encode("""
+        +-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+
+        | Message Code                  | Additional info length        |
+        | (29h)                         | (00h)                         |
+        +-------------------------------+-------------------------------+
+        | Ctrl1                         | Ctrl2                         |
+        | (BCh)                         | (E0h)                         |
+        +---------------------------------------------------------------+
+        | SAH (1.1)                     | SAL (4)                       |
+        | (11h)                         | (04h)                         |
+        +---------------------------------------------------------------+
+        | DAH (0/0)                     | DAL (2)                       |
+        | (00h)                         | (02h)                         |
+        +-------------------------------+-------------------------------+
+        | Octet count (TDPU length - 1)                                 |
+        | (05h)                                                         |
+        +---------------------------------------------------------------+
+        | TCPI, ACPI, ACPI/data                                         |
+        | (0040h)                                                       |
+        +---------------------------------------------------------------+
+        | Data                                                          |
+        | (41468F5Ch)                                                   |
+        +-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+
+        """)
 
       assert {:ok, decoded} == Telegram.decode(encoded)
       assert {:ok, encoded} == Telegram.encode(decoded)
@@ -83,14 +130,28 @@ defmodule KNXnetIP.TelegramTest do
         value: <<0::size(6)>>
       }
 
-      encoded = <<
-        0x2E, 0x00,
-        0xBC, 0xE0,
-        16, 1,
-        0, 7,
-        0x01,
-        0, 0
-      >>
+      encoded =
+        Framer.encode("""
+        +-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+
+        | Message Code                  | Additional info length        |
+        | (2Eh)                         | (00h)                         |
+        +-------------------------------+-------------------------------+
+        | Ctrl1                         | Ctrl2                         |
+        | (BCh)                         | (E0h)                         |
+        +---------------------------------------------------------------+
+        | SAH (1.0)                     | SAL (1)                       |
+        | (10h)                         | (01h)                         |
+        +---------------------------------------------------------------+
+        | DAH (0/0)                     | DAL (7)                       |
+        | (00h)                         | (07h)                         |
+        +-------------------------------+-------------------------------+
+        | Octet count (TDPU length - 1)                                 |
+        | (01h)                                                         |
+        +---------------------------------------------------------------+
+        | TCPI, ACPI, ACPI/data                                         |
+        | (0000h)                                                       |
+        +-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+
+        """)
 
       assert {:ok, decoded} == Telegram.decode(encoded)
       assert {:ok, encoded} == Telegram.encode(decoded)
@@ -107,15 +168,31 @@ defmodule KNXnetIP.TelegramTest do
         value: <<66, 105, 34, 209>>
       }
 
-      encoded = <<
-        0x11, 0x00,
-        0xBC, 0xE0,
-        0x01::4, 0x01::4, 0x05::8,
-        0x04::5, 0x04::3, 0x15::8,
-        0x05,
-        0x00::6, 0x02::4, 0x00::6,
-        0x42, 0x69, 0x22, 0xD1
-      >>
+      encoded =
+        Framer.encode("""
+        +-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+
+        | Message Code                  | Additional info length        |
+        | (11h)                         | (00h)                         |
+        +-------------------------------+-------------------------------+
+        | Ctrl1                         | Ctrl2                         |
+        | (BCh)                         | (E0h)                         |
+        +---------------------------------------------------------------+
+        | SAH (1.1)                     | SAL (5)                       |
+        | (11h)                         | (05h)                         |
+        +---------------------------------------------------------------+
+        | DAH (0/0)                     | DAL (2)                       |
+        | (24h)                         | (15h)                         |
+        +-------------------------------+-------------------------------+
+        | Octet count (TDPU length - 1)                                 |
+        | (05h)                                                         |
+        +---------------------------------------------------------------+
+        | TCPI, ACPI, ACPI/data                                         |
+        | (0080h)                                                       |
+        +---------------------------------------------------------------+
+        | Data                                                          |
+        | (426922D1h)                                                   |
+        +-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+-7-+-6-+-5-+-4-+-3-+-2-+-1-+-0-+
+        """)
 
       assert {:ok, decoded} == Telegram.decode(encoded)
       assert {:ok, encoded} == Telegram.encode(decoded)

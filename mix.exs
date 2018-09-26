@@ -6,20 +6,19 @@ defmodule KNXnetIP.Mixfile do
       app: :knxnet_ip,
       version: "0.1.0",
       elixir: "~> 1.6",
-      build_embedded: Mix.env == :prod,
-      start_permanent: Mix.env == :prod,
+      elixirc_paths: elixirc_path(Mix.env()),
+      build_embedded: Mix.env() == :prod,
+      start_permanent: Mix.env() == :prod,
       deps: deps(),
-
       test_coverage: [tool: ExCoveralls],
       preferred_cli_env: [
-        "coveralls": :test,
+        coveralls: :test,
         "coveralls.detail": :test,
         "coveralls.post": :test,
         "coveralls.html": :test
       ],
-
       name: "KNXnetIP",
-      docs: docs(),
+      docs: docs()
     ]
   end
 
@@ -42,19 +41,20 @@ defmodule KNXnetIP.Mixfile do
   defp deps do
     [
       {:connection, "~> 1.0"},
-
       {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
       {:excoveralls, "~> 0.8", only: :test},
-
       {:ex_doc, "~> 0.18", only: :dev, runtime: false},
-      {:stream_data, "~> 0.4.2"},
+      {:stream_data, "~> 0.4.2"}
     ]
   end
 
   defp docs() do
     [
       main: "readme",
-      extras: ["README.md"],
+      extras: ["README.md"]
     ]
   end
+
+  defp elixirc_path(:test), do: ["lib/", "test/support"]
+  defp elixirc_path(_), do: ["lib/"]
 end
