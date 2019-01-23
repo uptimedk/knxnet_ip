@@ -287,7 +287,8 @@ defmodule KNXnetIP.Tunnel do
       state
       | communication_channel_id: nil,
         remote_sequence_counter: 0,
-        local_sequence_counter: 0
+        local_sequence_counter: 0,
+        telegram_queue: :queue.new()
     }
 
     {:disconnect, {:error, :disconnect_requested}, state}
@@ -540,7 +541,8 @@ defmodule KNXnetIP.Tunnel do
         communication_channel_id: nil,
         disconnect_info: reason,
         remote_sequence_counter: 0,
-        local_sequence_counter: 0
+        local_sequence_counter: 0,
+        telegram_queue: :queue.new()
     }
 
     {:noreply, state}
