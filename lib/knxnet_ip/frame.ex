@@ -72,7 +72,7 @@ defmodule KNXnetIP.Frame do
   end
 
   def encode(frame),
-    do: {:error, {:frame_encode_error}, frame, "invalid or unsupported KNXnetIP frame"}
+    do: {:error, {:frame_encode_error, frame, "invalid or unsupported KNXnetIP frame"}}
 
   @doc "Decode a KNXnet/IP frame."
   def decode(frame)

@@ -11,7 +11,7 @@ defmodule KNXnetIP.TunnelTest do
 
   describe "init/1" do
     @tag :init
-    test "if mod.init/1 sucess will return connect tuple" do
+    test "if mod.init/1 success will return connect tuple" do
       Mox.expect(TunnelMock, :init, fn [] -> {:ok, :test_state} end)
 
       assert {:connect, :init, %{mod_state: :test_state}} = Tunnel.init({TunnelMock, [], []})
@@ -56,62 +56,31 @@ defmodule KNXnetIP.TunnelTest do
     setup [:server_sockets, :init, :connect]
 
     @tag :disconnect
-    test "returns stop tuple on normal shutdown", context do
-      assert {:stop, :normal, _state} = Tunnel.disconnect({:stop, :normal}, context.state)
-    end
+    test "invokes on_disconnect of callback module and uses returned backoff interval", context do
+      Mox.expect(TunnelMock, :on_disconnect, fn reason, _state ->
+        assert reason == :disconnect_requested
+        {:backoff, 100, :disconnected}
+      end)
 
-    @tag :disconnect
-    test "returns connect tuple on error", context do
-      assert {:connect, :reconnect, _state} =
-               Tunnel.disconnect({:error, :expected}, context.state)
-    end
-
-    @tag :disconnect
-    test "stops all timers", context do
-      ref = make_ref()
-
-      state = %{
-        context.state
-        | heartbeat_timer: %{timer: ref, ref: ref},
-          connectionstate_response_timer: %{timer: ref, ref: ref},
-          connect_response_timer: %{timer: ref, ref: ref},
-          disconnect_response_timer: %{timer: ref, ref: ref},
-          tunnelling_ack_timer: %{timer: ref, ref: ref}
-      }
-
-      {:stop, :normal, state} = Tunnel.disconnect({:stop, :normal}, state)
-
-      refute is_reference(state.heartbeat_timer.timer)
-      refute is_reference(state.heartbeat_timer.ref)
-      refute is_reference(state.connectionstate_response_timer.timer)
-      refute is_reference(state.connectionstate_response_timer.ref)
-      refute is_reference(state.connect_response_timer.timer)
-      refute is_reference(state.connect_response_timer.ref)
-      refute is_reference(state.disconnect_response_timer.timer)
-      refute is_reference(state.disconnect_response_timer.ref)
-      refute is_reference(state.tunnelling_ack_timer.timer)
-      refute is_reference(state.tunnelling_ack_timer.ref)
-    end
-
-    @tag :disconnect
-    test "sets communication_channel_id to nil", context do
-      {:stop, :normal, state} = Tunnel.disconnect({:stop, :normal}, context.state)
-      assert is_nil(state.communication_channel_id)
-    end
-
-    @tag :disconnect
-    test "closes sockets", context do
-      {:stop, :normal, state} = Tunnel.disconnect({:stop, :normal}, context.state)
-      assert {:error, :einval} = :inet.port(state.control_socket)
-      assert {:error, :einval} = :inet.port(state.data_socket)
+      assert {:backoff, 100, %{mod_state: :disconnected}} =
+               Tunnel.disconnect(:disconnect_requested, context.state)
     end
   end
 
   describe "handle_info/2" do
+    setup [:server_sockets, :init, :connect]
+
     test "ignores timeouts with stale references" do
       state = %{connect_response_timer: %{timer: make_ref(), ref: make_ref()}}
-      timeout = {:timeout, :connect_response_timer, make_ref()}
-      assert {:noreply, _state} = Tunnel.handle_info(timeout, state)
+      timeout = {Tunnel, :timeout, :connect_response_timer, make_ref()}
+      assert {:noreply, state} == Tunnel.handle_info(timeout, state)
+    end
+
+    test "invokes handle_info of callback module", context do
+      Mox.expect(TunnelMock, :handle_info, fn _msg, _state -> {:noreply, :handle_info_invoked} end)
+
+      assert {:noreply, %{mod_state: :handle_info_invoked}} =
+               Tunnel.handle_info(nil, context.state)
     end
   end
 
@@ -126,13 +95,30 @@ defmodule KNXnetIP.TunnelTest do
     end
   end
 
+  describe "handle_call/3" do
+    setup [:server_sockets, :init, :connect]
+
+    test "invokes handle_call of callback module", context do
+      Mox.expect(TunnelMock, :handle_call, fn _msg, _from, _state ->
+        {:reply, :ok, :handle_call_invoked}
+      end)
+
+      assert {:reply, :ok, %{mod_state: :handle_call_invoked}} =
+               Tunnel.handle_call(nil, {self(), make_ref()}, context.state)
+    end
+  end
+
   describe "handle_timeout/2 connect response" do
+    setup [:server_sockets, :init]
+
     @tag :connect_response_timeout
-    test "returns connect tuple for reconnect" do
+    test "returns disconnect tuple with timeout error", context do
       ref = make_ref()
-      state = %{connect_response_timer: %{timer: make_ref(), ref: ref}}
-      timeout = {:timeout, :connect_response_timer, ref}
-      assert {:connect, :retry, _state} = Tunnel.handle_info(timeout, state)
+      state = %{context.state | connect_response_timer: %{timer: make_ref(), ref: ref}}
+      timeout = {Tunnel, :timeout, :connect_response_timer, ref}
+
+      assert {:disconnect, {:connect_response_error, :timeout}, _state} =
+               Tunnel.handle_info(timeout, state)
     end
   end
 
@@ -141,7 +127,7 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :heartbeat_timeout
     test "starts connectionstate_response_timer on heartbeat timeout", context do
-      timeout = {:timeout, :heartbeat_timer, context.state.heartbeat_timer.ref}
+      timeout = {Tunnel, :timeout, :heartbeat_timer, context.state.heartbeat_timer.ref}
       assert {:noreply, state} = Tunnel.handle_info(timeout, context.state)
       assert is_reference(state.connectionstate_response_timer.timer)
       assert is_reference(state.connectionstate_response_timer.ref)
@@ -149,7 +135,7 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :heartbeat_timeout
     test "sends a connectionstate request", context do
-      timeout = {:timeout, :heartbeat_timer, context.state.heartbeat_timer.ref}
+      timeout = {Tunnel, :timeout, :heartbeat_timer, context.state.heartbeat_timer.ref}
       {:noreply, _state} = Tunnel.handle_info(timeout, context.state)
 
       assert {:ok, {_, _, connectionstate_request_frame}} =
@@ -161,7 +147,7 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :heartbeat_timeout
     test "sets the connectionstate attempts counter to 1", context do
-      timeout = {:timeout, :heartbeat_timer, context.state.heartbeat_timer.ref}
+      timeout = {Tunnel, :timeout, :heartbeat_timer, context.state.heartbeat_timer.ref}
       {:noreply, state} = Tunnel.handle_info(timeout, context.state)
       assert 1 == state.connectionstate_attempts
     end
@@ -174,7 +160,7 @@ defmodule KNXnetIP.TunnelTest do
     test "increments connectionstate attempts counter on connectionstate response timeout",
          context do
       ref = make_ref()
-      timeout = {:timeout, :connectionstate_response_timer, ref}
+      timeout = {Tunnel, :timeout, :connectionstate_response_timer, ref}
 
       state = %{
         context.state
@@ -186,9 +172,10 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :connectionstate_response_timeout
-    test "sends new connectionstate request when less than 3 connectionstate attempts", context do
+    test "sends new connectionstate request when less than 3 connectionstate attempts fail",
+         context do
       ref = make_ref()
-      timeout = {:timeout, :connectionstate_response_timer, ref}
+      timeout = {Tunnel, :timeout, :connectionstate_response_timer, ref}
 
       states =
         Enum.map(0..2, fn attempts ->
@@ -211,9 +198,9 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :connectionstate_response_timeout
-    test "starts a new timer when less than 3 connectionstate attempts", context do
+    test "starts a new timer when less than 3 connectionstate attempts fail", context do
       ref = make_ref()
-      timeout = {:timeout, :connectionstate_response_timer, ref}
+      timeout = {Tunnel, :timeout, :connectionstate_response_timer, ref}
 
       states =
         Enum.map(0..2, fn attempts ->
@@ -232,9 +219,9 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :connectionstate_response_timeout
-    test "sends disconnect request when 3 connectionstate attempts", context do
+    test "sends disconnect request when 3 connectionstate attempts fail", context do
       ref = make_ref()
-      timeout = {:timeout, :connectionstate_response_timer, ref}
+      timeout = {Tunnel, :timeout, :connectionstate_response_timer, ref}
 
       state = %{
         context.state
@@ -251,10 +238,10 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :connectionstate_response_timeout
-    test "sets communication_channel_id and disconnect info when 3 connectionstate attempts",
+    test "sets communication_channel_id and disconnect info when 3 connectionstate attempts fail",
          context do
       ref = make_ref()
-      timeout = {:timeout, :connectionstate_response_timer, ref}
+      timeout = {Tunnel, :timeout, :connectionstate_response_timer, ref}
 
       state = %{
         context.state
@@ -264,7 +251,7 @@ defmodule KNXnetIP.TunnelTest do
 
       {:noreply, state} = Tunnel.handle_info(timeout, state)
       assert state.communication_channel_id == nil
-      assert state.disconnect_info == {:error, :no_heartbeat}
+      assert state.disconnect_info == {:connectionstate_response_error, :timeout}
     end
   end
 
@@ -272,29 +259,27 @@ defmodule KNXnetIP.TunnelTest do
     setup [:server_sockets, :init, :connect]
 
     @tag :disconnect_response_timeout
-    test "returns a disconnect tuple", context do
+    test "returns a disconnect tuple which triggers immediate reconnect", context do
       ref = make_ref()
-      timeout = {:timeout, :disconnect_response_timer, ref}
+      timeout = {Tunnel, :timeout, :disconnect_response_timer, ref}
 
       state = %{
         context.state
-        | disconnect_response_timer: %{timer: ref, ref: ref, timeout: 10_000},
-          disconnect_info: {:error, :disconnect_response_timeout}
+        | communication_channel_id: nil,
+          disconnect_info: {:backoff, 0},
+          disconnect_response_timer: %{timer: ref, ref: ref, timeout: 10_000}
       }
 
-      assert {:disconnect, {:error, :disconnect_response_timeout}, _state} =
-               Tunnel.handle_info(timeout, state)
+      assert {:disconnect, {:backoff, 0}, _state} = Tunnel.handle_info(timeout, state)
     end
   end
 
   describe "handle_timeout/2 tunnelling ack" do
-    setup [:server_sockets, :init, :connect, :transmit]
+    setup [:server_sockets, :init, :connect, :send_telegram]
 
     @tag :tunnelling_ack_timeout
     test "increments tunnelling timeouts on first timeout", context do
-      Mox.expect(TunnelMock, :transmit_ack, 0, fn _, _, _ -> :ok end)
-
-      timeout = {:timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
+      timeout = {Tunnel, :timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
 
       {:noreply, state} = Tunnel.handle_info(timeout, context.state)
       assert state.tunnelling_timeouts == context.state.tunnelling_timeouts + 1
@@ -302,9 +287,7 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_ack_timeout
     test "resends tunnelling request on first timeout", context do
-      Mox.expect(TunnelMock, :transmit_ack, 0, fn _, _, _ -> :ok end)
-
-      timeout = {:timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
+      timeout = {Tunnel, :timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
 
       {:noreply, _state} = Tunnel.handle_info(timeout, context.state)
 
@@ -316,26 +299,8 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :tunnelling_ack_timeout
-    test "invokes transmit_ack callback with timeout status on second timeout", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn ref, status, _state ->
-        assert status == :timeout
-        assert {^ref, _} = context.state.tunnelling_request
-        {:ok, :got_transmit_ack_timeout}
-      end)
-
-      state = %{context.state | tunnelling_timeouts: 1}
-      timeout = {:timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
-
-      {:noreply, state} = Tunnel.handle_info(timeout, state)
-
-      assert state.mod_state == :got_transmit_ack_timeout
-    end
-
-    @tag :tunnelling_ack_timeout
     test "repeats tunnelling request and sends a disconnect request on second timeout", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn _, _, _ -> {:ok, :got_transmit_ack_callback} end)
-
-      timeout = {:timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
+      timeout = {Tunnel, :timeout, :tunnelling_ack_timer, context.state.tunnelling_ack_timer.ref}
 
       state = %{context.state | tunnelling_timeouts: 1}
 
@@ -352,7 +317,7 @@ defmodule KNXnetIP.TunnelTest do
 
       assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
 
-      assert state.disconnect_info == {:error, :no_tunnelling_ack}
+      assert state.disconnect_info == {:tunnelling_ack_error, :timeout}
     end
   end
 
@@ -400,6 +365,8 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :connect_response
     test "stops connect response timer", context do
+      Mox.expect(TunnelMock, :on_connect, fn state -> {:ok, state} end)
+
       {:ok, data_port} = :inet.port(context.data_socket)
       connect_response = connect_response(data_port)
 
@@ -412,6 +379,7 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :connect_response
     test "starts heartbeat timer", context do
+      Mox.expect(TunnelMock, :on_connect, fn state -> {:ok, state} end)
       {:ok, data_port} = :inet.port(context.data_socket)
       connect_response = connect_response(data_port)
 
@@ -424,6 +392,7 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :connect_response
     test "sets communication_channel_id", context do
+      Mox.expect(TunnelMock, :on_connect, fn state -> {:ok, state} end)
       {:ok, data_port} = :inet.port(context.data_socket)
       connect_response = connect_response(data_port)
 
@@ -456,7 +425,7 @@ defmodule KNXnetIP.TunnelTest do
 
       {:ok, state} = Tunnel.connect(:init, context.state)
 
-      assert {:disconnect, {:error, :connect_response_error}, _state} =
+      assert {:disconnect, {:connect_response_error, :e_host_protocol_type}, _state} =
                Tunnel.on_message(connect_response, state)
     end
   end
@@ -497,7 +466,8 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :connectionstate_response
-    test "sends new connectionstate request when less than 3 connectionstate attempts", context do
+    test "sends new connectionstate request when less than 3 connectionstate attempts fail",
+         context do
       connectionstate_response = connectionstate_response(:e_host_protocol_type)
 
       states =
@@ -517,7 +487,7 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :connectionstate_response
-    test "starts a new timer when less than 3 connectionstate attempts", context do
+    test "starts a new timer when less than 3 connectionstate attempts fail", context do
       connectionstate_response = connectionstate_response(:e_host_protocol_type)
 
       states =
@@ -535,7 +505,7 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :connectionstate_response
-    test "sends disconnect request when 3 connectionstate attempts", context do
+    test "sends disconnect request when 3 connectionstate attempts fail", context do
       connectionstate_response = connectionstate_response(:e_host_protocol_type)
       state = %{context.state | connectionstate_attempts: 3}
 
@@ -548,14 +518,14 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :connectionstate_response
-    test "sets communication_channel_id and disconnect info when 3 connectionstate attempts",
+    test "sets communication_channel_id and disconnect info when 3 connectionstate attempts fail",
          context do
       connectionstate_response = connectionstate_response(:e_host_protocol_type)
       state = %{context.state | connectionstate_attempts: 3}
 
       {:noreply, state} = Tunnel.on_message(connectionstate_response, state)
       assert state.communication_channel_id == nil
-      assert state.disconnect_info == {:error, :no_heartbeat}
+      assert state.disconnect_info == {:connectionstate_response_error, :e_host_protocol_type}
     end
   end
 
@@ -563,10 +533,10 @@ defmodule KNXnetIP.TunnelTest do
     setup [:server_sockets, :init, :connect]
 
     @tag :disconnect_request
-    test "returns disconnect tuple with disconnect requested info", context do
+    test "returns disconnect tuple which triggers immediate reconnect", context do
       disconnect_request = disconnect_request()
 
-      assert {:disconnect, {:error, :disconnect_requested}, _state} =
+      assert {:disconnect, :disconnect_requested, _state} =
                Tunnel.on_message(disconnect_request, context.state)
     end
 
@@ -665,7 +635,7 @@ defmodule KNXnetIP.TunnelTest do
     setup [:server_sockets, :init, :connect]
 
     @tag :tunnelling_request
-    test "increments remote sequence conter when tunnelling request is next in sequence",
+    test "increments remote sequence counter when tunnelling request is next in sequence",
          context do
       Mox.expect(TunnelMock, :on_telegram, fn _msg, _state -> {:ok, :new_mod_state} end)
 
@@ -720,14 +690,24 @@ defmodule KNXnetIP.TunnelTest do
       assert {:ok, %Tunnelling.TunnellingAck{}} = KNXnetIP.Frame.decode(tunnelling_ack_frame)
       assert state.remote_sequence_counter == 0
     end
+
+    @tag :tunnelling_request
+    test "invokes callback with encoded telegram", context do
+      Mox.expect(TunnelMock, :on_telegram, fn msg, _state ->
+        assert {:ok, %Telegram{}} = Telegram.decode(msg)
+        {:ok, :new_mod_state}
+      end)
+
+      {:noreply, _state} = Tunnel.on_message(tunnelling_request(0), context.state)
+    end
   end
 
   describe "on_message/2 tunnelling ack when status :e_no_error" do
-    setup [:server_sockets, :init, :connect, :transmit]
+    setup [:server_sockets, :init, :connect, :send_telegram]
 
     @tag :tunnelling_ack
     test "stops tunnelling_ack_timer", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+      Mox.expect(TunnelMock, :on_telegram_ack, fn _state ->
         {:ok, :got_transmit_ack_callback}
       end)
 
@@ -739,7 +719,7 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_ack
     test "resets tunnelling timeouts counter", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+      Mox.expect(TunnelMock, :on_telegram_ack, fn _state ->
         {:ok, :got_transmit_ack_callback}
       end)
 
@@ -750,8 +730,8 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_ack
     test "removes tunnelling request from state", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
-        {:ok, :got_transmit_ack_callback}
+      Mox.expect(TunnelMock, :on_telegram_ack, fn _state ->
+        {:ok, :got_telegram_ack_callback}
       end)
 
       {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), context.state)
@@ -760,7 +740,7 @@ defmodule KNXnetIP.TunnelTest do
 
     @tag :tunnelling_ack
     test "bumps sequence counter", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
+      Mox.expect(TunnelMock, :on_telegram_ack, fn _state ->
         {:ok, :got_transmit_ack_callback}
       end)
 
@@ -769,12 +749,9 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :tunnelling_ack
-    test "invokes transmit_ack with status code", context do
-      {req_ref, _} = context.state.tunnelling_request
-
-      Mox.expect(TunnelMock, :transmit_ack, fn ref, status, _state ->
-        assert req_ref == ref
-        assert status == :e_no_error
+    test "invokes on_telegram_ack when sequence counter matches",
+         context do
+      Mox.expect(TunnelMock, :on_telegram_ack, fn _state ->
         {:ok, :got_transmit_ack_callback}
       end)
 
@@ -784,52 +761,28 @@ defmodule KNXnetIP.TunnelTest do
     end
 
     @tag :tunnelling_ack
-    test "sends the next telegram in the queue", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn _ref, _status, _state ->
-        {:ok, :got_transmit_ack_callback}
+    test "sends telegram if returned by call to on_telegram_ack", context do
+      Mox.expect(TunnelMock, :on_telegram_ack, fn _state ->
+        {:send_telegram, telegram(), :got_transmit_ack_callback}
       end)
 
-      telegram = %Telegram{
-        destination: "4/4/21",
-        service: :group_read,
-        source: "1.1.6",
-        type: :request,
-        value: <<0::6>>
-      }
-
-      req_ref = make_ref()
-
-      queue = :queue.new()
-      queue = :queue.in({req_ref, telegram}, queue)
-
-      state = %{context.state | telegram_queue: queue}
-
-      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), state)
-
-      assert state.local_sequence_counter == context.state.local_sequence_counter + 1
-      assert {^req_ref, _req} = state.tunnelling_request
+      {:noreply, state} = Tunnel.on_message(tunnelling_ack(0), context.state)
 
       assert {:ok, {_, _, tunnelling_request_frame}} =
                :gen_udp.recv(context.data_socket, 0, 1_000)
 
-      assert {:ok, %Tunnelling.TunnellingRequest{} = req} =
+      assert {:ok, %Tunnelling.TunnellingRequest{}} =
                KNXnetIP.Frame.decode(tunnelling_request_frame)
 
-      assert {:ok, telegram} == KNXnetIP.Telegram.decode(req.telegram)
-      assert req.sequence_counter == state.local_sequence_counter
+      assert state.mod_state == :got_transmit_ack_callback
     end
   end
 
   describe "on_message/2 tunnelling ack when status is not :e_no_error" do
-    setup [:server_sockets, :init, :connect, :transmit]
+    setup [:server_sockets, :init, :connect, :send_telegram]
 
     @tag :tunnelling_ack
-    test "repeats tunnelling request and disconnects", context do
-      Mox.expect(TunnelMock, :transmit_ack, fn _ref, status, _state ->
-        assert status == :anything_but_e_no_error
-        {:ok, :got_transmit_ack_callback}
-      end)
-
+    test "repeats tunnelling request, disconnects and reconnects immediately", context do
       tun_ack = tunnelling_ack(0, :anything_but_e_no_error)
 
       assert {:noreply, state} = Tunnel.on_message(tun_ack, context.state)
@@ -845,28 +798,91 @@ defmodule KNXnetIP.TunnelTest do
 
       assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
 
-      assert state.disconnect_info == {:error, :anything_but_e_no_error}
+      assert state.disconnect_info == {:tunnelling_ack_error, :anything_but_e_no_error}
     end
   end
 
-  describe "handle_cast/2 returns transmit" do
+  describe "handle_* callbacks return stop tuple" do
     setup [:server_sockets, :init, :connect]
 
-    @tag :transmit
-    test "encodes and transmits a tunnelling_request on data socket", context do
-      telegram = %Telegram{
-        destination: "4/4/21",
-        service: :group_read,
-        source: "1.1.5",
-        type: :request,
-        value: <<0::6>>
-      }
-
-      Mox.expect(TunnelMock, :handle_cast, fn :test_transmit, _state ->
-        {:transmit, make_ref(), telegram, :transmitting}
+    test "handle_call will return reply", context do
+      Mox.expect(TunnelMock, :handle_call, fn :test_stop, _, state ->
+        {:stop, :testing_stop, :testing_stop_reply, state}
       end)
 
-      assert {:noreply, _state} = Tunnel.handle_cast(:test_transmit, context.state)
+      ref = make_ref()
+
+      assert {:stop, :testing_stop, _state} =
+               Tunnel.handle_call(:test_stop, {self(), ref}, context.state)
+
+      assert_receive {^ref, :testing_stop_reply}
+    end
+
+    test "stops all timers", context do
+      Mox.expect(TunnelMock, :handle_call, fn :test_stop, _, state ->
+        {:stop, :testing_stop, state}
+      end)
+
+      ref = make_ref()
+
+      state = %{
+        context.state
+        | heartbeat_timer: %{timer: ref, ref: ref},
+          connectionstate_response_timer: %{timer: ref, ref: ref},
+          connect_response_timer: %{timer: ref, ref: ref},
+          disconnect_response_timer: %{timer: ref, ref: ref},
+          tunnelling_ack_timer: %{timer: ref, ref: ref}
+      }
+
+      assert {:stop, :testing_stop, state} =
+               Tunnel.handle_call(:test_stop, {self(), make_ref()}, state)
+
+      refute is_reference(state.heartbeat_timer.timer)
+      refute is_reference(state.heartbeat_timer.ref)
+      refute is_reference(state.connectionstate_response_timer.timer)
+      refute is_reference(state.connectionstate_response_timer.ref)
+      refute is_reference(state.connect_response_timer.timer)
+      refute is_reference(state.connect_response_timer.ref)
+      refute is_reference(state.disconnect_response_timer.timer)
+      refute is_reference(state.disconnect_response_timer.ref)
+      refute is_reference(state.tunnelling_ack_timer.timer)
+      refute is_reference(state.tunnelling_ack_timer.ref)
+    end
+
+    test "sends disconnect request", context do
+      Mox.expect(TunnelMock, :handle_info, fn :test_stop, state ->
+        {:stop, :testing_stop, state}
+      end)
+
+      assert {:stop, :testing_stop, _state} = Tunnel.handle_info(:test_stop, context.state)
+
+      assert {:ok, {_, _, disconnect_request_frame}} =
+               :gen_udp.recv(context.control_socket, 0, 1_000)
+
+      assert {:ok, %Core.DisconnectRequest{}} = KNXnetIP.Frame.decode(disconnect_request_frame)
+    end
+
+    test "closes sockets", context do
+      Mox.expect(TunnelMock, :handle_cast, fn :test_stop, state ->
+        {:stop, :testing_stop, state}
+      end)
+
+      assert {:stop, :testing_stop, state} = Tunnel.handle_cast(:test_stop, context.state)
+      assert {:error, :einval} = :inet.port(state.control_socket)
+      assert {:error, :einval} = :inet.port(state.data_socket)
+    end
+  end
+
+  describe "handle_* callbacks return send_telegram" do
+    setup [:server_sockets, :init, :connect]
+
+    @tag :send_telegram
+    test "transmits a tunnelling_request on data socket", context do
+      Mox.expect(TunnelMock, :handle_cast, fn :test_send_telegram, _state ->
+        {:send_telegram, telegram(), :transmitting}
+      end)
+
+      assert {:noreply, _state} = Tunnel.handle_cast(:test_send_telegram, context.state)
 
       assert {:ok, {_, _, tunnelling_request_frame}} =
                :gen_udp.recv(context.data_socket, 0, 1_000)
@@ -874,43 +890,24 @@ defmodule KNXnetIP.TunnelTest do
       assert {:ok, %Tunnelling.TunnellingRequest{} = req} =
                KNXnetIP.Frame.decode(tunnelling_request_frame)
 
-      assert {:ok, telegram} == KNXnetIP.Telegram.decode(req.telegram)
+      assert telegram() == req.telegram
     end
 
-    @tag :transmit
+    @tag :send_telegram
     test "adds tunnelling request to state", context do
-      telegram = %Telegram{
-        destination: "4/4/21",
-        service: :group_read,
-        source: "1.1.5",
-        type: :request,
-        value: <<0::6>>
-      }
-
-      ref = make_ref()
-
-      Mox.expect(TunnelMock, :handle_cast, fn :test_transmit, _state ->
-        {:transmit, ref, telegram, :transmitting}
+      Mox.expect(TunnelMock, :handle_info, fn :test_transmit, _state ->
+        {:send_telegram, telegram(), :transmitting}
       end)
 
-      {:noreply, state} = Tunnel.handle_cast(:test_transmit, context.state)
+      {:noreply, state} = Tunnel.handle_info(:test_transmit, context.state)
 
-      assert {^ref, tunnelling_request} = state.tunnelling_request
-      assert {:ok, telegram} == KNXnetIP.Telegram.decode(tunnelling_request.telegram)
+      assert telegram() == state.tunnelling_request.telegram
     end
 
-    @tag :transmit
+    @tag :send_telegram
     test "starts tunnelling_ack_timer", context do
       Mox.expect(TunnelMock, :handle_cast, fn :test_transmit, _state ->
-        telegram = %Telegram{
-          destination: "4/4/21",
-          service: :group_read,
-          source: "1.1.5",
-          type: :request,
-          value: <<0::6>>
-        }
-
-        {:transmit, make_ref(), telegram, :transmitting}
+        {:send_telegram, telegram(), :transmitting}
       end)
 
       {:noreply, state} = Tunnel.handle_cast(:test_transmit, context.state)
@@ -919,27 +916,16 @@ defmodule KNXnetIP.TunnelTest do
       assert is_reference(state.tunnelling_ack_timer.ref)
     end
 
-    @tag :transmit
-    test "puts telegram in queue if waiting for tunnelling request ack", context do
-      telegram = %Telegram{
-        destination: "4/4/21",
-        service: :group_read,
-        source: "1.1.5",
-        type: :request,
-        value: <<0::6>>
-      }
-
-      ref = make_ref()
-
-      Mox.expect(TunnelMock, :handle_cast, fn :test_transmit, _state ->
-        {:transmit, ref, telegram, :transmitting}
+    @tag :send_telegram
+    test "discards telegram if waiting for tunnelling ack", context do
+      Mox.expect(TunnelMock, :handle_call, fn :test_transmit, _from, _state ->
+        {:send_telegram, telegram(), :ok, :transmitting}
       end)
 
-      state = %{context.state | tunnelling_request: {make_ref(), telegram}}
+      state = %{context.state | tunnelling_request: telegram()}
 
-      {:noreply, state} = Tunnel.handle_cast(:test_transmit, state)
-
-      assert {{:value, {^ref, ^telegram}}, {[], []}} = :queue.out(state.telegram_queue)
+      {:reply, :ok, _state} = Tunnel.handle_call(:test_transmit, {self(), make_ref()}, state)
+      assert {:error, :timeout} == :gen_udp.recv(context.data_socket, 0, 100)
     end
   end
 
@@ -962,6 +948,8 @@ defmodule KNXnetIP.TunnelTest do
   end
 
   defp connect(context) do
+    Mox.expect(TunnelMock, :on_connect, fn state -> {:ok, state} end)
+
     {:ok, data_port} = :inet.port(context.data_socket)
     connect_response = connect_response(data_port)
 
@@ -972,22 +960,12 @@ defmodule KNXnetIP.TunnelTest do
     %{state: state}
   end
 
-  defp transmit(context) do
-    telegram = %Telegram{
-      destination: "4/4/21",
-      service: :group_read,
-      source: "1.1.5",
-      type: :request,
-      value: <<0::6>>
-    }
-
-    ref = make_ref()
-
-    Mox.expect(TunnelMock, :handle_cast, fn :setup_transmit, _state ->
-      {:transmit, ref, telegram, :transmitting}
+  defp send_telegram(context) do
+    Mox.expect(TunnelMock, :handle_cast, fn :setup_send_telegram, _state ->
+      {:send_telegram, telegram(), :transmitting}
     end)
 
-    {:noreply, state} = Tunnel.handle_cast(:setup_transmit, context.state)
+    {:noreply, state} = Tunnel.handle_cast(:setup_send_telegram, context.state)
     :gen_udp.recv(context.data_socket, 0, 1_000)
 
     %{state: state}
@@ -1048,5 +1026,18 @@ defmodule KNXnetIP.TunnelTest do
       sequence_counter: sequence_counter,
       status: status
     }
+  end
+
+  defp telegram() do
+    {:ok, telegram} =
+      Telegram.encode(%Telegram{
+        destination: "4/4/21",
+        service: :group_read,
+        source: "1.1.5",
+        type: :request,
+        value: <<0::6>>
+      })
+
+    telegram
   end
 end
