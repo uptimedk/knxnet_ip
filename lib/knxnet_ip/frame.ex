@@ -2,6 +2,9 @@ defmodule KNXnetIP.Frame do
   @moduledoc """
   Encoding and decoding of frame structures defined in the KNXnet/IP
   specification.
+
+  The function in this module are only relevant when implementing
+  low level KNXnet/IP functionality.
   """
 
   alias KNXnetIP.Frame.{Core, Tunnelling}
@@ -16,6 +19,9 @@ defmodule KNXnetIP.Frame do
   @disconnect_response 0x020A
   @tunnelling_request 0x0420
   @tunnelling_ack 0x0421
+
+  @doc "Encode a KNXnet/IP frame."
+  def encode(frame)
 
   def encode(%Core.ConnectRequest{} = req) do
     with {:ok, body} <- Core.encode_connect_request(req) do
@@ -67,6 +73,9 @@ defmodule KNXnetIP.Frame do
 
   def encode(frame),
     do: {:error, {:frame_encode_error}, frame, "invalid or unsupported KNXnetIP frame"}
+
+  @doc "Decode a KNXnet/IP frame."
+  def decode(frame)
 
   def decode(<<@header_size_10, @knxnetip_version_10, data::binary>>), do: do_decode(data)
 
