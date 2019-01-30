@@ -14,8 +14,9 @@ defmodule KNXnetIP do
      which are encoded as KNX datatypes, to Elixir datatypes.
 
   In addition to the codec functionality, the `KNXnetIP.Tunnel` module
-  provides a behaviour for a KNXnet/IP client. It handles for establishing
-  and maintaining a KNXnet/IP connection, and invokes the callback module to
-  handle telegram traffic on the KNX bus.
+  provides a behaviour for KNXnet/IP clients. It handles establishment and
+  maintenance of a KNXnet/IP Tunnel connection, and provides hooks for the
+  callback module to send and receive telegram traffic to and from the KNX
+  bus.
   """
 end

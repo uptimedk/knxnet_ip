@@ -24,7 +24,7 @@ overview of the most important parts.
 [KNXnet/IP introduction]: introduction.html
 
 To create a KNXnet/IP tunnelling client, you'll need to implement a callback
-module for the KNXnetIP.Tunnel behaviour. See the documentation for
+module for the `KNXnetIP.Tunnel` behaviour. See the documentation for
 `KNXnetIP.Tunnel` for a thorough example and in-depth descriptions.
 
 ## Maturity

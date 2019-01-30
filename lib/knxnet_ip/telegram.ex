@@ -4,8 +4,8 @@ defmodule KNXnetIP.Telegram do
   as used in KNXnet/IP.
 
   The `Telegram` struct is used as a model of KNX telegrams. When sending a
-  message to the KNX network, you should such a struct, encode it and send it
-  using the `KNXnetIP.Tunnel`.
+  message to the KNX network, you create a `Telegram` struct, encode it and
+  send it using the `KNXnetIP.Tunnel`.
 
   ## Examples
 
@@ -93,7 +93,7 @@ defmodule KNXnetIP.Telegram do
   @typedoc """
   Elixir datastructure that represents a KNX telegram.
 
-  The struct contains fields the necessary fields for encoding and decoding a
+  The struct contains the necessary fields for encoding and decoding a
   telegram using cEMI.
 
   - `:type` - The Data Link Layer service primitive.

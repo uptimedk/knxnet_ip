@@ -157,6 +157,9 @@ connections:
 For all connection types, two communication channels are used - core and
 data. The core channel is used for establishing the connection between client
 and server, and maintaining it through regular heartbeats. This is common for
-all connection types. The communication on the data channel is unique to each
-connection type, and is used to transport messages between the client and the
-KNX bus.
+all connection types.
+
+The data channel is used to exchange telegrams between the client and the KNX
+bus. The telegrams are encoded using the common External Message Format
+(cEMI). The type of connection governs which telegrams are exchanged and what
+the rules for exchange are.
