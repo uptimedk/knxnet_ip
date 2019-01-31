@@ -1,6 +1,72 @@
 defmodule KNXnetIP.Telegram do
   @moduledoc """
-  Encoding and decoding of KNX telegram structures in cEMI format.
+  Encoding and decoding of KNX telegram structures in cEMI format,
+  as used in KNXnet/IP.
+
+  The `Telegram` struct is used as a model of KNX telegrams. When sending a
+  message to the KNX network, you create a `Telegram` struct, encode it and
+  send it using the `KNXnetIP.Tunnel`.
+
+  ## Examples
+
+  When you create a telegram, you must specify `source` and `destination`.
+  `source` is a physical address and should always be `"0.0.0"` when sent
+  from a tunnel client to the tunnel server. `destination` is the the group
+  address that you want to interact with. Note: currently the library only
+  supports 3-level group addresses, e.g. "1/2/16" (main, middle and
+  subgroup).
+
+  To read the value of a group address, you'll need a telegram of
+  type `:request` and service `:group_read`:
+
+      read_request = %Telegram{
+        type: :request,
+        service: :group_read,
+        source: "0.0.0",
+        group_address: "0/0/2" # replace with the group adress you need to read
+        value: <<0::6>> # a read request always has the value zero
+      }
+
+  Once encoded and sent to the KNX network, you will later receive a
+  read response that contains the value of the group address:
+
+      read_response = %Telegram{
+        type: :indication,
+        service: :group_response,
+        source: "1.1.4",
+        destination: "0/0/2",
+        value: <<0x41, 0x46, 0x8F, 0x5C>>
+      }
+
+  The `value` field now contains the value of the group address, encoded as a
+  KNX datapoint. To decode datapoints, see `KNX.Datapoint`.
+
+  To send a group write, the type is still `:request` but the service is now
+  `:group_write`:
+
+      write_request = %Telegram{
+        type: :request,
+        service: :group_write,
+        source: "0.0.0",
+        destination: "0/0/2",
+        value: <<0x42, 0x69, 0x22, 0xD1>>
+      }
+
+  Again, the `value` is the binary representation of a KNX datapoint with the
+  value you want to write. See `KNX.Datapoint` for how to encode a value.
+
+  Whenever you send a telegram to the KNX bus, you will receive a telegram
+  back of type `:confirmation`. This confirmation telegram simply echoes the
+  telegram you sent back to you - only the `source` and `type` fields will be
+  different. Example confirmation for a group read:
+
+      confirmation = %Telegram{
+        type: :confirmation,
+        service: :group_read,
+        source: "1.0.53",
+        destination: "0/0/2",
+        value: <<0::6>>
+      }
   """
 
   @indication 0x29
@@ -24,12 +90,50 @@ defmodule KNXnetIP.Telegram do
   defp constant(:group_response), do: @group_response
   defp constant(_), do: nil
 
+  @typedoc """
+  Elixir datastructure that represents a KNX telegram.
+
+  The struct contains the necessary fields for encoding and decoding a
+  telegram using cEMI.
+
+  - `:type` - The Data Link Layer service primitive.
+  - `:service` - The Application Layer service primvite.
+  - `:source` - Physical address of the device sending the telegram.
+     Represented as a string, e.g. "1.1.1".
+  - `:destination` - Logical address (group address) that the telegram
+     corresponds to. Represented as a string, e.g. "1/0/4".
+  - `:value` - Encoded KNX datapoint.
+  """
+  @type t :: %__MODULE__{
+          type: :request | :indication | :confirmation,
+          source: binary(),
+          destination: binary(),
+          service: :group_read | :group_response | :group_write,
+          value: binary()
+        }
+
   defstruct type: nil,
             source: "",
             destination: "",
             service: nil,
             value: <<>>
 
+  @doc """
+  Decode a telegram.
+
+  ## Example
+
+      iex> telegram = <<41, 0, 188, 224, 16, 3, 0, 3, 1, 0, 0>>
+      iex> {:ok, decoded_telegram} = KNXnetIP.Telegram.decode(telegram)
+      {:ok,
+       %KNXnetIP.Telegram{
+         destination: "0/0/3",
+         service: :group_read,
+         source: "1.0.3",
+         type: :indication,
+         value: <<0::size(6)>>
+       }}
+  """
   def decode(<<message_code, rest::binary>>) do
     with {:ok, type} <- decode_message_code(message_code),
          {:ok, lpdu} <- skip_additional_info(rest),
@@ -107,6 +211,21 @@ defmodule KNXnetIP.Telegram do
     "#{area}.#{line}.#{bus_device}"
   end
 
+  @doc """
+  Decode a telegram.
+
+  ## Example
+
+      iex> telegram = %KNXnetIP.Telegram{
+        type: :indication,
+        service: :group_read,
+        source: "1.0.3",
+        destination: "0/0/3",
+        value: <<0::size(6)>>
+      }
+      iex> {:ok, encoded_telegram} = KNXnetIP.Telegram.encode(telegram)
+      {:ok, <<41, 0, 188, 224, 16, 3, 0, 3, 1, 0, 0>>}
+  """
   def encode(%__MODULE__{} = telegram) do
     with {:ok, message_code} <- encode_type(telegram.type),
          {:ok, source} <- encode_individual_address(telegram.source),

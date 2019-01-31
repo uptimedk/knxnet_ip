@@ -1,9 +1,9 @@
 defmodule KNXnetIP.Frame.Core do
-  @moduledoc """
-  Implementation of frame structures defined in KNXnet/IP Core specification
-  (document 3/8/2). This module defines structs to represent the Core frame
-  structures, and functions to encode and decode the binary representation.
-  """
+  @moduledoc false
+
+  # Implementation of frame structures defined in KNXnet/IP Core specification
+  # (document 3/8/2). This module defines structs to represent the Core frame
+  # structures, and functions to encode and decode the binary representation.
 
   import KNXnetIP.Guards
 

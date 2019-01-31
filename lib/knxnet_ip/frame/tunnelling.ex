@@ -1,10 +1,10 @@
 defmodule KNXnetIP.Frame.Tunnelling do
-  @moduledoc """
-  Implementation of frame structures defined in KNXnet/IP Tunnelling
-  specification (document 3/8/4). This module defines structs to represent the
-  Tunnelling frame structures, and functions to encode and decode the binary
-  representation.
-  """
+  @moduledoc false
+
+  # Implementation of frame structures defined in KNXnet/IP Tunnelling
+  # specification (document 3/8/4). This module defines structs to represent the
+  # Tunnelling frame structures, and functions to encode and decode the binary
+  # representation.
 
   import KNXnetIP.Guards
 

@@ -1,107 +1,74 @@
 # KNXnetIP [![pipeline status](https://gitlab.uptime.dk/troels/knxnet_ip/badges/master/pipeline.svg)](https://gitlab.uptime.dk/troels/knxnet_ip/commits/master) [![coverage report](https://gitlab.uptime.dk/troels/knxnet_ip/badges/master/coverage.svg)](https://gitlab.uptime.dk/troels/knxnet_ip/commits/master)
 
-KNXnetIP is an Elixir library for communicating with devices on a KNX network using KNXnet/IP. The library provides a set of functions for encoding and decoding KNX and KNXnet/IP frames, as well as encoding and decoding datapoints when given a datapoint type. It also packs KNXnetIP.Tunnel, a behaviour module for connecting to a KNX IP interface, and for sending and receiving KNX frames to and from the KNX network.
+KNXnetIP is an Elixir library for communicating with devices on a KNX network
+using KNXnet/IP. The library enables its users to build applications which
+integrate with devices on a KNX network. To achieve this, the library
+provides:
 
-There is no intent to implement the full KNX specification. KNXnetIP has been written to provide the parts necessary to build applications which integrate with devices on a KNX network. It was specifically written to maintain connections to the KNX IP interface in spite of very lossy IP networks. The primary use case is to listen for group writes on the KNX network, and perform group reads and group writes.
+- Encoding and decoding of KNXnet/IP frames.
+- Encoding and decoding of KNX telegrams, to control the state of the KNX
+  network (GroupValueRead and GroupValueWrite).
+- Encoding and decoding of all common datatypes.
+- A behaviour for KNXnet/IP tunnelling clients.
 
-**Note**: The library is under heavy development. Not all of the advertised features are implemented yet. Check below to see the list of implemented features.
+KNXnetIP was specifically written to provide a tunnelling client which is:
 
-## Examples
+- Robust. The tunnelling connection must be maintained even on very lossy IP
+  networks, and it must automatically reconnect when the connection drops.
+- Isolated. One application must be able to have multiple concurrent
+  tunnelling connections to different KNX networks.
 
-Define a simple callback module for the KNXnetIP.Tunnel behaviour:
+If you're new to KNX, please check the [KNXnet/IP introduction][] page for an
+overview of the most important parts.
 
-```elixir
-defmodule MyApp.Tunnel do
-  @behaviour KNXnetIP.Tunnel
+[KNXnet/IP introduction]: introduction.html
 
-  def start_link(knxnet_ip_opts, gen_server_opts) do
-    KNXnetIP.Tunnel.start_link(__MODULE__, :nil, knxnet_ip_opts, gen_server_opts)
-  end
+To create a KNXnet/IP tunnelling client, you'll need to implement a callback
+module for the `KNXnetIP.Tunnel` behaviour. See the documentation for
+`KNXnetIP.Tunnel` for a thorough example and in-depth descriptions.
 
-  def init(:nil) do
-    {:ok, :nil}
-  end
+## Maturity
 
-  def on_telegram(%KNXnetIP.Telegram{} = telegram, :nil) do
-    IO.puts("Tunnel got message: #{inspect(telegram)}")
-    {:ok, parent_pid}
-  end
-end
-```
+The library has been used in production as part of the smart city energy lab
+[EnergyLab Nordhavn](http://energylabnordhavn.weebly.com/) since August 2017.
+It sends and receives telegrams to and from more than 30 apartments - and
+every month it processes more than 70 million telegrams.
 
-## Features
+We are quite happy with its performance and fault tolerance, but parts of the
+API are less than ideal. Fixing this will require breaking the API, so expect
+changes.
 
-In order to fulfill the requirements of a KNXnet/IP tunnelling client, the library will implement encoding and decoding of the following data structures:
+The library implements encoding and decoding of the following data structures:
 
 - KNXnet/IP services:
-  - [ ] SEARCH_REQUEST
-  - [ ] SEARCH_RESPONSE
-  - [ ] DESCRIPTION_REQUEST
-  - [ ] DESCRIPTION_RESPONSE
-  - [x] CONNECT_REQUEST
-  - [x] CONNECT_RESPONSE
-  - [x] DISCONNECT_REQUEST
-  - [x] DISCONNECT_RESPONSE
-  - [x] CONNECTIONSTATE_REQUEST
-  - [x] CONNECTIONSTATE_RESPONSE
-  - [x] TUNNELING_REQUEST
-  - [x] TUNNELING_ACK
-- Telegrams
-  - [x] L_Data.ind
-  - [x] L_Data.con
-  - [x] L_Data.req
+  - CONNECT_REQUEST
+  - CONNECT_RESPONSE
+  - DISCONNECT_REQUEST
+  - DISCONNECT_RESPONSE
+  - CONNECTIONSTATE_REQUEST
+  - CONNECTIONSTATE_RESPONSE
+  - TUNNELING_REQUEST
+  - TUNNELING_ACK
+- Telegrams (cEMI encoded):
+  - L_Data.ind
+  - L_Data.con
+  - L_Data.req
 - Application services:
-  - [x] A_GroupValue_Read
-  - [x] A_GroupValue_Response
-  - [x] A_GroupValue_Write
-- Datapoint types (main group):
-  - [x] 1
-  - [x] 2
-  - [x] 3
-  - [x] 4
-  - [x] 5
-  - [x] 6
-  - [x] 7
-  - [x] 8
-  - [x] 9
-  - [x] 10
-  - [x] 11
-  - [x] 12
-  - [x] 13
-  - [x] 14
-  - [x] 15
-  - [x] 16
-  - [x] 18
-  - [x] 20
+  - A_GroupValue_Read
+  - A_GroupValue_Response
+  - A_GroupValue_Write
+- Datapoint types 1-16, 18 and 20 (main group)
 
 The KNXnetIP.Tunnel behaviour sports the following features:
 
-- [x] Connect to a KNX IP interface
-- [x] Retry failed connection attempts using a backoff interval
-- [x] Perform heartbeating according to the specification
-- [x] Reconnect if the heartbeat fails due to timeouts or other errors
-- [x] Disconnect and reconnect to KNX IP interface if it receives a DISCONNECT_REQUEST
-- [x] Handle duplicate TUNNELLING_REQUESTS from server according to the specification
-- [x] Send TUNNELLING_REQUESTS to the server
-- [x] Resend TUNNELLING_REQUEST if no TUNNELLING_ACK is received
-- [x] Disconnect and reconnect if TUNNELING_ACK is not received or signals an error
-
-## Installation
-
-If [available in Hex](https://hex.pm/docs/publish), the package can be installed as:
-
-  1. Add `knxnet_ip` to your list of dependencies in `mix.exs`:
-
-    ```elixir
-    def deps do
-      [{:knxnet_ip, "~> 0.1.0"}]
-    end
-    ```
-
-  2. Ensure `knxnet_ip` is started before your application:
-
-    ```elixir
-    def application do
-      [applications: [:knxnet_ip]]
-    end
-    ```
+- Connect to a KNXnet/IP tunnelling server via. UDP.
+- Retry failed connection attempts using a backoff interval.
+- Perform heartbeating according to the specification, and reconnect if the
+  heartbeat fails due to timeouts or other errors.
+- Disconnect and reconnect if the client receives a DISCONNECT_REQUEST from
+  the tunnelling server.
+- Handle duplicate TUNNELLING_REQUESTS from tunnelling server according to
+  the specification.
+- Send TUNNELLING_REQUESTS to the server, and resend TUNNELLING_REQUEST if no
+  TUNNELLING_ACK is received.
+- Disconnect and reconnect if TUNNELING_ACK is not received or signals an error.

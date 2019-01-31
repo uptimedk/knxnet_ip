@@ -1,10 +1,12 @@
 defmodule KNXnetIP.Mixfile do
   use Mix.Project
 
+  @version "0.1.0"
+
   def project do
     [
       app: :knxnet_ip,
-      version: "0.1.0",
+      version: @version,
       elixir: "~> 1.6",
       elixirc_paths: elixirc_path(Mix.env()),
       build_embedded: Mix.env() == :prod,
@@ -41,8 +43,8 @@ defmodule KNXnetIP.Mixfile do
   defp deps do
     [
       {:connection, "~> 1.0"},
-      {:credo, "~> 0.8", only: [:dev, :test], runtime: false},
-      {:ex_doc, "~> 0.18", only: :dev, runtime: false},
+      {:credo, "~> 1.0", only: [:dev, :test], runtime: false},
+      {:ex_doc, "~> 0.18.0", only: :dev, runtime: false},
       {:excoveralls, "~> 0.8", only: :test},
       {:stream_data, "~> 0.4.2", only: :test},
       {:mox, "~> 0.4.0", only: :test}
@@ -51,8 +53,13 @@ defmodule KNXnetIP.Mixfile do
 
   defp docs() do
     [
+      name: "KNXnetIP",
+      source_ref: "v#{@version}",
       main: "readme",
-      extras: ["README.md"]
+      extras: [
+        "README.md",
+        "docs/introduction.md"
+      ]
     ]
   end
 

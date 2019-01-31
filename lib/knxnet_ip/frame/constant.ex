@@ -37,6 +37,8 @@ defmodule KNXnetIP.Frame.Constant do
   defconstant(:status, :e_connection_type, 0x22)
   defconstant(:status, :e_connection_option, 0x23)
   defconstant(:status, :e_no_more_connections, 0x24)
+  defconstant(:status, :e_no_more_unique_connections, 0x25)
   defconstant(:status, :e_data_connection, 0x26)
   defconstant(:status, :e_knx_connection, 0x27)
+  defconstant(:status, :e_tunnelling_layer, 0x29)
 end
