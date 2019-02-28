@@ -1,6 +1,6 @@
 ---
 
-image: elixir:1.6
+image: elixir:1.6-otp-21
 
 variables:
   MIX_ENV: test

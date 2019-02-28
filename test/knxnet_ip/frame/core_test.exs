@@ -165,6 +165,16 @@ defmodule KNXnetIP.Frame.CoreTest do
       assert {:ok, encoded} == Core.encode_connectionstate_response(decoded)
       assert {:ok, decoded} == Core.decode_connectionstate_response(encoded)
     end
+
+    test "encode fails when status is invalid" do
+      decoded = %ConnectionstateResponse{
+        communication_channel_id: 1,
+        status: :invalid
+      }
+
+      assert {:error, {:frame_encode_error, :invalid, "invalid connection status code"}} ==
+               Core.encode_connectionstate_response(decoded)
+    end
   end
 
   describe "DISCONNECT_REQUEST" do
@@ -216,6 +226,16 @@ defmodule KNXnetIP.Frame.CoreTest do
 
       assert {:ok, encoded} == Core.encode_disconnect_response(decoded)
       assert {:ok, decoded} == Core.decode_disconnect_response(encoded)
+    end
+
+    test "encode fails when status is invalid" do
+      decoded = %DisconnectResponse{
+        communication_channel_id: 1,
+        status: :invalid
+      }
+
+      assert {:error, {:frame_encode_error, :invalid, "invalid connection status code"}} ==
+               Core.encode_disconnect_response(decoded)
     end
   end
 end

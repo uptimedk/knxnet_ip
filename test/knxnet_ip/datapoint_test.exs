@@ -143,6 +143,10 @@ defmodule KNXnetIP.DatapointTest do
       assert {:ok, encoded} == Datapoint.encode(decoded, "9.*")
       assert {:ok, decoded} == Datapoint.decode(encoded, "9.*")
     end
+
+    test "encode 16bit float" do
+      assert {:ok, <<127, 255>>} == Datapoint.encode(670_760.96, "9.*")
+    end
   end
 
   describe "10.*" do
