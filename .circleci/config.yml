@@ -43,7 +43,8 @@ jobs:
 
       - run: mix format --check-formatted --dry-run
       - run: mix credo
-      - run: mix test
+      - run: mix coveralls.json
+      - run: bash <(curl -s https://codecov.io/bash)
 
       - store_test_results:
           path: _build/test/lib/knxnet_ip
