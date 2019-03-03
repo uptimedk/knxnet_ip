@@ -47,7 +47,8 @@ defmodule KNXnetIP.Mixfile do
       {:ex_doc, "~> 0.18.0", only: :dev, runtime: false},
       {:excoveralls, "~> 0.8", only: :test},
       {:stream_data, "~> 0.4.2", only: :test},
-      {:mox, "~> 0.4.0", only: :test}
+      {:mox, "~> 0.4.0", only: :test},
+      {:junit_formatter, "~> 3.0", only: :test}
     ]
   end
 
