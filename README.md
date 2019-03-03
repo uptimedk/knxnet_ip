@@ -21,7 +21,7 @@ KNXnetIP was specifically written to provide a tunnelling client which is:
 If you're new to KNX, please check the [KNXnet/IP introduction][] page for an
 overview of the most important parts.
 
-[KNXnet/IP introduction]: introduction.html
+[KNXnet/IP introduction]: docs/introduction.md
 
 To create a KNXnet/IP tunnelling client, you'll need to implement a callback
 module for the `KNXnetIP.Tunnel` behaviour. See the documentation for
