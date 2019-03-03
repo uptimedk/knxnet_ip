@@ -1,7 +1,8 @@
 defmodule KNXnetIP.GuardsTest do
   use ExUnit.Case, async: true
 
-  import KNXnetIP.Guards, only: [is_digit: 1, is_bit: 1, is_integer_between: 3, is_float_between: 3]
+  import KNXnetIP.Guards,
+    only: [is_digit: 1, is_bit: 1, is_integer_between: 3, is_float_between: 3]
 
   describe "is_digit/1" do
     test "succeeds on digit" do
@@ -31,6 +32,7 @@ defmodule KNXnetIP.GuardsTest do
       assert_raise FunctionClauseError, fn ->
         integer_between(7, 2, 5) == true
       end
+
       assert_raise FunctionClauseError, fn ->
         integer_between(1, 2, 5) == true
       end
@@ -46,6 +48,7 @@ defmodule KNXnetIP.GuardsTest do
       assert_raise FunctionClauseError, fn ->
         integer_between(7.0, 2.0, 5.0) == true
       end
+
       assert_raise FunctionClauseError, fn ->
         integer_between(1.0, 2.0, 5.0) == true
       end
@@ -68,4 +71,3 @@ defmodule KNXnetIP.GuardsTest do
     true
   end
 end
-
