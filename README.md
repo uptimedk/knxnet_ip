@@ -72,3 +72,7 @@ The KNXnetIP.Tunnel behaviour sports the following features:
 - Send TUNNELLING_REQUESTS to the server, and resend TUNNELLING_REQUEST if no
   TUNNELLING_ACK is received.
 - Disconnect and reconnect if TUNNELING_ACK is not received or signals an error.
+
+## License
+
+KNXnetIP is released under the MIT License. See the LICENSE file for further details.

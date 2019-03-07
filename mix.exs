@@ -2,6 +2,7 @@ defmodule KNXnetIP.Mixfile do
   use Mix.Project
 
   @version "0.2.0-dev"
+  @github_url "https://github.com/uptimedk/knxnet_ip"
 
   def project do
     [
@@ -20,6 +21,9 @@ defmodule KNXnetIP.Mixfile do
         "coveralls.html": :test
       ],
       name: "KNXnetIP",
+      description: "KNXnet/IP library in Elixir",
+      source_url: @github_url,
+      package: package(),
       docs: docs()
     ]
   end
@@ -49,6 +53,14 @@ defmodule KNXnetIP.Mixfile do
       {:stream_data, "~> 0.4.2", only: :test},
       {:mox, "~> 0.4.0", only: :test},
       {:junit_formatter, "~> 3.0", only: :test}
+    ]
+  end
+
+  defp package() do
+    [
+      licenses: ["MIT"],
+      files: ~w(lib mix.exs README.md LICENSE),
+      links: %{"GitHub" => @github_url}
     ]
   end
 
