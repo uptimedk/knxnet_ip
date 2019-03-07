@@ -1,4 +1,8 @@
-# KNXnetIP [![CircleCI](https://circleci.com/gh/uptimedk/knxnet_ip.svg?style=shield)](https://circleci.com/gh/uptimedk/knxnet_ip) [![codecov](https://codecov.io/gh/uptimedk/knxnet_ip/branch/master/graph/badge.svg)](https://codecov.io/gh/uptimedk/knxnet_ip)
+# KNXnetIP 
+[![Build Status](https://circleci.com/gh/uptimedk/knxnet_ip.svg?style=shield)](https://circleci.com/gh/uptimedk/knxnet_ip)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://github.com/uptimedk/knxnet_ip/blob/master/LICENSE)
+[![Hex version](https://img.shields.io/hexpm/v/knxnet_ip.svg "Hex version")](https://hex.pm/packages/knxnet_ip)
+[![Coverage Status](https://codecov.io/gh/uptimedk/knxnet_ip/branch/master/graph/badge.svg)](https://codecov.io/gh/uptimedk/knxnet_ip)
 
 KNXnetIP is an Elixir library for communicating with devices on a KNX network
 using KNXnet/IP. The library enables its users to build applications which
