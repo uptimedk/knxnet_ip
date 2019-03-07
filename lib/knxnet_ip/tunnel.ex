@@ -12,9 +12,9 @@ defmodule KNXnetIP.Tunnel do
   `:send_telegram` tuple when a callback is invoked. The behaviour will then
   wrap the encoded telegram in a TUNNELLING_REQUEST and send it to the tunnel
   server. When the tunnel server responds with a TUNNELLING_ACK, the callback
-  `c:on_telegram_ack/2` is invoked.
+  `c:on_telegram_ack/1` is invoked.
 
-  The callback module must wait for `c:on_telegram_ack/2` to be invoked
+  The callback module must wait for `c:on_telegram_ack/1` to be invoked
   before sending any further telegrams. If the callback module tries to send
   a new telegram while the client is waiting to receive a TUNNELLING_ACK from
   a previous TUNNELLING_REQUEST, the new telegram will be discarded.
