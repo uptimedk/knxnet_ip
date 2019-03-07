@@ -1,7 +1,7 @@
 defmodule KNXnetIP.Mixfile do
   use Mix.Project
 
-  @version "0.2.0-dev"
+  @version "0.2.0"
   @github_url "https://github.com/uptimedk/knxnet_ip"
 
   def project do
@@ -59,7 +59,7 @@ defmodule KNXnetIP.Mixfile do
   defp package() do
     [
       licenses: ["MIT"],
-      files: ~w(lib mix.exs README.md LICENSE),
+      files: ~w(lib mix.exs README.md LICENSE CHANGELOG.md),
       links: %{"GitHub" => @github_url}
     ]
   end
